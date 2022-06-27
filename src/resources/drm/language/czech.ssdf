@@ -1,0 +1,65 @@
+{
+	plugin: {
+		drm: {
+			title: "DRM Plugin",
+			configuration: {
+				titles: {
+					general: "DRM"
+				},
+				fields: {
+					debug: "Debug mód"
+				}
+			},
+			drm_instance: {
+				begin: "Spouštění DRM instance...",
+				end:   "DRM instance skončila",
+				error: "Došlo k chybě v DRM instanci"
+			},
+			widevine: {
+				begin:            "Spouštění procesu stažení Widevine CDM...",
+				wait_cef_request: "Čekání na požadavek pro stažení Widevine CDM od CEF (až 10 sekund)...",
+				end:              "Proces stažení Widevine CDM dokončen",
+				error:            "Proces stažení Widevine CDM vyhodil chybu",
+				begin_request:    "Posílání požadavku pro stažení Widevine CDM...",
+				end_request:      "Posílání požadavku pro stažení Widevine CDM... hotovo",
+				begin_download:   "Stahování .crx souboru Widevine CDM...",
+				update_download:  "Stahování .crx souboru Widevine CDM... %{percent}%%",
+				end_download:     "Stahování .crx souboru Widevine CDM... hotovo",
+				begin_extract:    "Extrakce staženého .crx souboru Widevine CDM...",
+				end_extract:      "Extrakce staženého .crx souboru Widevine CDM... hotovo"
+			},
+			phase: {
+				analyze: {
+					begin:  "Spouštění analyzování...",
+					update: "Analyzování... %{percent}%% (%{current_time}/%{total_time}s)",
+					end:    "Analyzování dokončeno",
+					error:  "Při analyzování došlo k chybě"
+				},
+				record: {
+					begin:  "Spouštění nahrávání...",
+					update: "Nahrávání... %{percent}%% (%{current_time}/%{total_time}s)",
+					end:    "Nahrávání dokončeno",
+					error:  "Při nahrávání došlo k chybě"
+				},
+				post_process: {
+					begin:             "Spouštění zpracování...",
+					update_percent:    "%{name}... %{percent}%% (%{current_time}/%{total_time}s)",
+					update_no_percent: "%{name}... %{current_time}s",
+					end:               "Zpracování dokončeno",
+					error:             "Při zpracování došlo k chybě",
+					enum: {
+						MEAN_VOLUME:    "Získávání průměru hlasitosti",
+						VOLUME_ENTRIES: "Získávání záznamů hlasitosti",
+						SILENCE_RANGES: "Získávání rozsahů ticha",
+						CUTS_GENERATE:  "Generování střihů",
+						FIX_VIDEO:      "Opravování videa",
+						TRIM_VIDEO:     "Stříhání videa",
+						FIX_AUDIO:      "Opravování audia",
+						TRIM_AUDIO:     "Stříhání audia",
+						MERGE:          "Sloučení videa a audia"
+					}
+				}
+			}
+		}
+	}
+}

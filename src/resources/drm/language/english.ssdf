@@ -1,0 +1,65 @@
+{
+	plugin: {
+		drm: {
+			title: "DRM Plugin",
+			configuration: {
+				titles: {
+					general: "DRM"
+				},
+				fields: {
+					debug: "Debug mode"
+				}
+			},
+			drm_instance: {
+				begin: "Starting DRM instance...",
+				end:   "DRM instance ended",
+				error: "An error occurred in DRM instance"
+			},
+			widevine: {
+				begin:            "Starting Download Widevine CDM process...",
+				wait_cef_request: "Waiting for Widevine CDM download request made by CEF (up to 10 seconds)...",
+				end:              "Download Widevine CDM process done",
+				error:            "Download Widevine CDM process has thrown an error",
+				begin_request:    "Sending Widevine CDM download request...",
+				end_request:      "Sending Widevine CDM download request... done",
+				begin_download:   "Downloading Widevine CDM .crx file...",
+				update_download:  "Downloading Widevine CDM .crx file... %{percent}%%",
+				end_download:     "Downloading Widevine CDM .crx file... done",
+				begin_extract:    "Extracting downloaded Widevine CDM .crx file...",
+				end_extract:      "Extracting downloaded Widevine CDM .crx file... done"
+			},
+			phase: {
+				analyze: {
+					begin:  "Starting analyzing...",
+					update: "Analyzing... %{percent}%% (%{current_time}/%{total_time}s)",
+					end:    "Analyzing ended",
+					error:  "An error occurred while analyzing"
+				},
+				record: {
+					begin:  "Starting recording...",
+					update: "Recording... %{percent}%% (%{current_time}/%{total_time}s)",
+					end:    "Recording ended",
+					error:  "An error occurred while recording"
+				},
+				post_process: {
+					begin:             "Starting post-processing...",
+					update_percent:    "%{name}... %{percent}%% (%{current_time}/%{total_time}s)",
+					update_no_percent: "%{name}... %{current_time}s",
+					end:               "Post-processing ended",
+					error:             "An error occurred while post-processing",
+					enum: {
+						MEAN_VOLUME:    "Getting volume mean",
+						VOLUME_ENTRIES: "Getting volume entries",
+						SILENCE_RANGES: "Getting silence ranges",
+						CUTS_GENERATE:  "Generating cuts",
+						FIX_VIDEO:      "Fixing video",
+						TRIM_VIDEO:     "Trimming video",
+						FIX_AUDIO:      "Fixing audio",
+						TRIM_AUDIO:     "Trimming audio",
+						MERGE:          "Merging video and audio"
+					}
+				}
+			}
+		}
+	}
+}
