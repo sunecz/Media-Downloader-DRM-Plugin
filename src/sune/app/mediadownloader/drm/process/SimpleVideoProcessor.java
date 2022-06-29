@@ -80,16 +80,19 @@ public class SimpleVideoProcessor implements VideoProcessor {
 		if(logger.isDebugEnabled())
 			logger.debug("Duration: {}s", DRMUtils.format("%.6f", duration));
 		
-		List<Cut.OfDouble> cuts = new ArrayList<>(recordInfo.cuts());
-		if(recordInfo.startCutOff() > 0.0) {
-			cuts.add(0, new Cut.OfDouble(0.0, recordInfo.startCutOff()));
+		List<Cut.OfDouble> cuts = new ArrayList<>(recordInfo.videoCuts());
+		Cut.OfDouble cutOff = recordInfo.cutOff();
+		
+		if(cutOff.start() > 0.0) {
+			cuts.add(0, new Cut.OfDouble(0.0, cutOff.start()));
 		}
-		if(recordInfo.endCutOff() > 0.0 && recordInfo.endCutOff() < duration) {
-			cuts.add(new Cut.OfDouble(recordInfo.endCutOff(), duration));
+		
+		if(cutOff.end() > 0.0 && cutOff.end() < duration) {
+			cuts.add(new Cut.OfDouble(cutOff.end(), duration));
 		}
 		
 		if(logger.isDebugEnabled()) {
-			logger.debug("Cuts:");
+			logger.debug("Video cuts:");
 			cuts.forEach((c) -> logger.debug(c.toString()));
 		}
 		
