@@ -218,6 +218,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			double startTime = pauseTime;
 			double endTime = metrics.recordTime();
 			videoCuts.add(new Cut.OfDouble(startTime, endTime));
+			
+			// Unset the pause time here, so that there are no new items in the audioVolumes list
 			pauseTime = -1.0;
 			
 			// Cut can happen either in Audio or in Silence:
@@ -240,7 +242,11 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				}
 			}
 			
-			audioCuts.add(new Cut.OfDouble(lastAudioTime, endTime + (lastAudioTime - startTime)));
+			// Only add the cut if we exited the range with a silence
+			if(!wasAudio) {
+				audioCuts.add(new Cut.OfDouble(lastAudioTime, endTime + (lastAudioTime - startTime)));
+			}
+			
 			audioVolumes.clear();
 		}
 		videoPlaying.set(true);
@@ -315,6 +321,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			running.set(false);
 			if(!stopped.get()) {
 				done.set(true);
+				context.processManager().closeAll();
 				context.eventRegistry().call(RecordEvent.END, context);
 			}
 		}

@@ -1,6 +1,7 @@
 package sune.app.mediadownloader.drm.util;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -37,29 +38,32 @@ public final class ProcessManager {
 			throw exception;
 	}
 	
-	public final void stop() throws Exception {
-		if(stopped.get() || processes.isEmpty())
-			return;
+	public final void closeAll() throws Exception {
+		if(processes.isEmpty()) return;
 		doWithProcesses(ReadOnlyProcess::close);
+		processes.clear();
+	}
+	
+	public final void stop() throws Exception {
+		if(stopped.get()) return;
+		closeAll();
 		stopped.set(true);
 	}
 	
 	public final void pause() throws Exception {
-		if(paused.get() || processes.isEmpty())
-			return;
+		if(paused.get()) return;
 		doWithProcesses((p) -> ProcessUtils.pause(p.getProcess()));
 		paused.set(true);
 	}
 	
 	public final void resume() throws Exception {
-		if(!paused.get() || processes.isEmpty())
-			return;
+		if(!paused.get()) return;
 		doWithProcesses((p) -> ProcessUtils.resume(p.getProcess()));
 		paused.set(false);
 	}
 	
 	public final List<ReadOnlyProcess> processes() {
-		return processes;
+		return Collections.unmodifiableList(processes);
 	}
 	
 	public final boolean isPaused() {
