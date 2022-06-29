@@ -36,7 +36,7 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 	
 	public SimpleAudioProcessor(TrackerManager trackerManager, ProcessManager processManager, FilesManager filesManager,
 			RecordInfo recordInfo, Path inputPath, Path outputPath) {
-		this.trackerManager = trackerManager; 
+		this.trackerManager = trackerManager;
 		this.processManager = processManager;
 		this.filesManager = filesManager;
 		this.recordInfo = recordInfo;
@@ -72,7 +72,7 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 		if(logger.isDebugEnabled())
 			logger.debug("Process audio: {}", inputPath.toString());
 		
-		Path path = inputPath.resolveSibling("audio.fix.mkv");
+		Path path = inputPath.resolveSibling("audio.fix.wav");
 		extractFixedAudio(inputPath, path);
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		

@@ -295,11 +295,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 					try {
 						startRecord();
 						// Recording has been started, also start the video
-						context.playbackController().play(() -> {
-							/*startCutOff = metrics.startCutOff();
-							if(logger.isDebugEnabled())
-								logger.debug("Start cut off: {}", startCutOff);*/
-						});
+						context.playbackController().play();
 					} catch(Exception ex) {
 						exception.set(ex);
 						mtxDone.unlock();
