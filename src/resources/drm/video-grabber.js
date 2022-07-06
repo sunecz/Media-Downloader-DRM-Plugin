@@ -3,7 +3,7 @@
 	({
 		_counter: 0,
 		_videoPlayer: null,
-		provide(name, data) { window.cefQuery({ request: (name && name.length ? name + ':' : '') + JSON.stringify(data) }); },
+		provide(name, data) { window.cefQuery({ request: (name && name.length ? name + ':' : '') + JSON.stringify({ ...data, now: Date.now() }) }); },
 		isVideo(node) { return node.tagName === 'VIDEO'; },
 		vsyncInterval(callable) { const r = window.requestAnimationFrame, c = callable.bind(this), l = (() => { if(c() !== false) r(l); }); r(l); },
 		ensureButtonHolder() {
