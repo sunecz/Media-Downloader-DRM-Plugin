@@ -116,29 +116,26 @@ public final class AudioDevices {
 	
 	private static final class DirectShowAudioDevicesParser implements Consumer<String> {
 		
-		private static final Pattern PATTERN_HEADER
-			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+DirectShow\\s([^\\s]+)\\sdevices$");
 		private static final Pattern PATTERN_NAME
-			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+\"([^\"]+)\"\\s*$");
+			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+\"([^\"]+)\"\\s+\\(([^\\)]+)\\)\\s*$");
 		private static final Pattern PATTERN_ALT_NAME
 			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+Alternative name \"([^\"]+)\"\\s*$");
 		
 		private final List<AudioDevice> devices = new ArrayList<>();
 		private AudioDevice.Builder audioDevice;
-		private boolean audioDevicesList;
+		private boolean wasAudioDevice;
 		
 		@Override
 		public void accept(String line) {
 			Matcher matcher;
-			// First, try to match the header specifying the type of the list (i.e. video or audio).
-			if((matcher = PATTERN_HEADER.matcher(line)).matches()) {
-				audioDevicesList = matcher.group(1).equalsIgnoreCase("audio");
-			}
-			
-			// Skip all items from a list that is not the list of audio devices
-			if(!audioDevicesList) return;
-			
 			if((matcher = PATTERN_NAME.matcher(line)).matches()) {
+				// Ignore non-audio devices
+				if(!matcher.group(2).equalsIgnoreCase("audio"))
+					return;
+				
+				// Mark the current device as an audio device
+				wasAudioDevice = true;
+				
 				// Audio device name is first, construct or clear the builder as needed
 				if(audioDevice == null) {
 					audioDevice = new AudioDevice.Builder();
@@ -148,7 +145,7 @@ public final class AudioDevices {
 				
 				// Obtain the audio device's name
 				audioDevice.name(matcher.group(1));
-			} else if((matcher = PATTERN_ALT_NAME.matcher(line)).matches()) {
+			} else if(wasAudioDevice && (matcher = PATTERN_ALT_NAME.matcher(line)).matches()) {
 				// Obtain the audio device's alternative name
 				audioDevice.alternativeName(matcher.group(1));
 				// Check whether the device is virtual or not
