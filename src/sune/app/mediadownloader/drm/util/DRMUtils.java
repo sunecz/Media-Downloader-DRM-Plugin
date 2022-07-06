@@ -258,6 +258,22 @@ public final class DRMUtils {
 		return Math.abs(a - b) <= epsilon;
 	}
 	
+	public static final boolean lte(double a, double b) {
+		return lte(a, b, EPSILON);
+	}
+	
+	public static final boolean lte(double a, double b, double epsilon) {
+		return a - b <= epsilon;
+	}
+	
+	public static final boolean gte(double a, double b) {
+		return gte(a, b, EPSILON);
+	}
+	
+	public static final boolean gte(double a, double b, double epsilon) {
+		return b - a <= epsilon;
+	}
+	
 	public static final String format(String format, Object... args) {
 		return String.format(Locale.US, format, args);
 	}
