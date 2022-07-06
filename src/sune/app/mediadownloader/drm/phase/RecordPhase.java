@@ -2,7 +2,6 @@ package sune.app.mediadownloader.drm.phase;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -40,7 +39,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private static final Logger logger = DRMLog.get();
 	
-	private static final Pattern PATTERN_LINE_PROGRESS = Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*(\\d+)\\s.*?time=(.*?)\\s.*$");
+	private static final Pattern PATTERN_LINE_PROGRESS = Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
 	// TODO: Should probably be replaced by some dynamic value
 	private static final double SILENCE_THRESHOLD = -90.0;
 	
@@ -64,9 +63,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private volatile double pauseTime = -1.0;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
-	
 	private RealTimeAudio audio;
-	private final List<AudioVolume> audioVolumes = new LinkedList<>();
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -100,23 +97,42 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final void ffmpegOutputHandler(String line) {
 		if(logger.isDebugEnabled())
 			logger.debug("FFMpeg | {}", line);
+		
 		Matcher matcher = PATTERN_LINE_PROGRESS.matcher(line);
 		if(!matcher.matches()) return; // Ignore non-progress lines
+		
 		int recordFrames = Integer.valueOf(matcher.group(1));
-		double recordFPS = Integer.valueOf(matcher.group(2));
+		double recordFPS = Double.valueOf(matcher.group(2));
 		double recordTime = Utils.convertToSeconds(matcher.group(3));
+		
 		if(!recordStarted) {
 			// Notify the thread that is checking if an error happened
 			threadInit.interrupt();
 			recordStarted = true;
+			
+			double lastAudioUpdateTime = lastAudioVolume.time() - recordTime;
+			audioAndRecordDiff = lastAudioUpdateTime;
+			
+			if(logger.isDebugEnabled())
+				logger.debug("audioAndRecordDiff={}", audioAndRecordDiff);
 		}
+		
 		metrics.updateRecord(recordTime, recordFrames, recordFPS);
 	}
 	
+	private volatile double lastAudioTime = -1.0;
+	private volatile double audioAndRecordDiff = 0.0;
+	private volatile AudioVolume lastAudioVolume;
+	
 	private final void audioUpdated(AudioVolume audioVolume) {
-		if(pauseTime >= 0.0) {
-			audioVolumes.add(audioVolume.time(metrics.recordTime()));
+		double time = metrics.recordTime();
+		lastAudioVolume = audioVolume;
+		
+		if(audioVolume.volume() > SILENCE_THRESHOLD) {
+			lastAudioTime = time;
 		}
+		
+		//logger.debug("audioUpdated :: recordTime={}, time={}, volume={}", time, audioVolume.time(), audioVolume.volume());
 	}
 	
 	private final String getRecordFFMpegCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle) {
@@ -124,20 +140,21 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		builder.append(" -y"); // Rewrite the output file, if it exists
 		builder.append(" -f dshow"); // Record audio
 		builder.append(" -thread_queue_size 1024 -probesize 8M -channels 2 -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
-		builder.append(" -itsoffset " + audioOffset); // Fix video/audio desync
+		//builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
 		builder.append(" -i audio=\"%{audio_device_name}s\""); // Record specific audio input
 		builder.append(" -f gdigrab"); // Record video
 		builder.append(" -thread_queue_size 1024 -probesize 64M -fflags +igndts -framerate %{frame_rate}s -draw_mouse 0"); // Input video settings
 		builder.append(" -i title=\"%{window_title}s\""); // Record specific window
 		builder.append(" -c:v libx264rgb -r %{frame_rate}s"); // Output video settings
 		builder.append(" -c:a pcm_s16le -ac 2 -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-		builder.append(" -preset ultrafast -tune zerolatency -crf 18 -qp 0 -pix_fmt yuv420p"); // Performance settings
+		builder.append(" -preset ultrafast -tune zerolatency -crf 18 -qp 0 -pix_fmt rgb24"); // Performance settings
 		builder.append(" -af asetpts=N/SR/TB -vf setpts=N/FR/TB"); // Ensure correct timestamps on pause/resume
 		builder.append(" -hide_banner -loglevel warning -stats -stats_period %{progress_interval}s");
 		builder.append(" \"%{output}s\"");
 		String command = Utils.format(builder.toString(),
 			"audio_device_name", audioDeviceName,
 			"sample_rate", sampleRate,
+			"audio_offset", DRMUtils.toString(audioOffset),
 			"window_title", windowTitle,
 			"frame_rate", DRMUtils.toString(frameRate),
 			"output", recordPath.toAbsolutePath().toString(),
@@ -196,30 +213,41 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(ex != null) throw ex;
 	}
 	
-	private void pauseRecord() {
+	private void pauseRecord(PlaybackData data) {
 		if(process == null)
 			throw new IllegalStateException("FFMpeg not ready");
 		if(!videoPlaying.get()) return; // Video not playing
+		
+		double recordTime = metrics.recordTime();
+		
+		logger.debug("pauseRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
+		
 		if(logger.isDebugEnabled())
 			logger.debug("Record paused");
+		
 		if(pauseTime < 0.0) {
-			pauseTime = metrics.recordTime();
+			pauseTime = recordTime - 1.0 / frameRate;
 		}
+		
 		videoPlaying.set(false);
 	}
 	
-	private void resumeRecord() {
+	private void resumeRecord(PlaybackData data) {
 		if(process == null)
 			throw new IllegalStateException("FFMpeg not ready");
 		if(videoPlaying.get()) return; // Video already playing
+		
+		double recordTime = metrics.recordTime();
+		
+		logger.debug("resumeRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
+		
 		if(logger.isDebugEnabled())
 			logger.debug("Record resumed");
+		
 		if(pauseTime >= 0.0) {
 			double startTime = pauseTime;
-			double endTime = metrics.recordTime();
+			double endTime = recordTime;
 			videoCuts.add(new Cut.OfDouble(startTime, endTime));
-			
-			// Unset the pause time here, so that there are no new items in the audioVolumes list
 			pauseTime = -1.0;
 			
 			// Cut can happen either in Audio or in Silence:
@@ -228,26 +256,24 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			// (2) Happened in Silence (audio_volume <= silence_threshold)
 			//     -> Cut = (Cut_Start, Cut_End)
 			// For all cuts, it should be true that:
-			//     length(Cut_Video) ~~ length(Cut_Audio) [almost exactly the same]
+			//     length(Cut_Video) == length(Cut_Audio)
 			
-			double lastAudioTime = startTime;
-			boolean wasAudio = false;
+			double lat = lastAudioTime;
+			logger.debug("lastAudioTime_pre={}", lat);
+			//lat = lat - audioAndRecordDiff;
+			logger.debug("lastAudioTime={}", lat);
+			logger.debug("lastSilenceStartTime={}", audio.lastSilenceStartTime());
+			logger.debug("startTime={}, endTime={}", startTime, endTime);
 			
-			for(AudioVolume vol : audioVolumes) {
-				if(vol.volume() > SILENCE_THRESHOLD) {
-					wasAudio = true;
-				} else if(wasAudio) {
-					lastAudioTime = vol.time();
-					wasAudio = false;
-				}
+			double audioEnd = Math.max(startTime, lat);
+			if(DRMUtils.lte(audioEnd, endTime)) {
+				Cut.OfDouble c = new Cut.OfDouble(audioEnd, endTime + (audioEnd - startTime));
+				logger.debug("AUDIO CUT: {}", c);
+				audioCuts.add(c);
+			} else {
+				// TODO: Still add the cut?
+				logger.debug("NO CUT");
 			}
-			
-			// Only add the cut if we exited the range with a silence
-			if(!wasAudio) {
-				audioCuts.add(new Cut.OfDouble(lastAudioTime, endTime + (lastAudioTime - startTime)));
-			}
-			
-			audioVolumes.clear();
 		}
 		videoPlaying.set(true);
 	}
@@ -386,8 +412,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		private boolean isFirstEvent = true;
 		
-		private final void setStartCutOff() {
-			startCutOff = metrics.startCutOff();
+		private final void setStartCutOff(PlaybackData data) {
+			startCutOff = metrics.startCutOff() - data.time;
 			if(logger.isDebugEnabled())
 				logger.debug("Start cut off: {}", startCutOff);
 			isFirstEvent = false;
@@ -399,13 +425,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			metrics.updatePlayback(data.time, data.frame);
 			
 			if(isFirstEvent)
-				setStartCutOff();
+				setStartCutOff(data);
 			
 			if(logger.isDebugEnabled())
 				logger.debug("Update | time={}, frame={}, record time={}, buffered={}, fps={}", data.time, data.frame, metrics.recordTime(), data.buffered, metrics.playbackFPS());
 			
 			if(recordPaused) {
-				resumeRecord();
+				resumeRecord(data);
 			}
 			
 			tracker.update(data.time);
@@ -418,12 +444,12 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			if(recordPaused) return; // Not resumed, ignore
 			
 			if(isFirstEvent)
-				setStartCutOff();
+				setStartCutOff(data);
 			
 			if(logger.isDebugEnabled())
 				logger.debug("Wait | time={}, frame={}, record time={}", data.time, data.frame, metrics.recordTime());
 			
-			if(!playbackEnded) pauseRecord();
+			if(!playbackEnded) pauseRecord(data);
 			recordPaused = true;
 		}
 		
@@ -434,13 +460,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			if(!recordPaused) return; // Not paused, ignore
 			
 			if(isFirstEvent)
-				setStartCutOff();
+				setStartCutOff(data);
 			
 			// Video is buffered (after wait), can be played
 			if(logger.isDebugEnabled())
 				logger.debug("Resume | time={}, frame={}, record time={}", data.time, data.frame, metrics.recordTime());
 			
-			resumeRecord();
+			resumeRecord(data);
 			recordPaused = false;
 		}
 		
@@ -450,7 +476,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			metrics.updatePlayback(data.time, data.frame);
 			
 			if(isFirstEvent)
-				setStartCutOff();
+				setStartCutOff(data);
 			
 			// If the video stopped while waiting (it can happen), use the pause time
 			endCutOff = pauseTime >= 0.0 ? pauseTime : metrics.recordTime();
