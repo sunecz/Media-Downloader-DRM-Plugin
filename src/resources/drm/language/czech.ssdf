@@ -3,7 +3,7 @@
 		drm: {
 			title: "DRM Plugin",
 			configuration: {
-				titles: {
+				group: {
 					general: "DRM"
 				},
 				fields: {

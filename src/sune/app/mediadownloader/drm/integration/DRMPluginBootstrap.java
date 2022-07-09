@@ -53,8 +53,12 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	}
 	
 	private final void initConfiguration() {
-		PluginConfiguration.Builder builder = new PluginConfiguration.Builder(context().getPlugin().instance().name());
-		builder.addProperty(ConfigurationProperty.ofBoolean("debug").withDefaultValue(false));
+		PluginConfiguration.Builder builder
+			= new PluginConfiguration.Builder(context().getPlugin().instance().name());
+		String group = builder.name() + ".general";
+		builder.addProperty(ConfigurationProperty.ofBoolean("debug")
+			.inGroup(group)
+			.withDefaultValue(false));
 		configuration = builder;
 	}
 	
