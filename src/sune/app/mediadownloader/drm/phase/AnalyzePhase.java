@@ -8,6 +8,7 @@ import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.AnalyzeEvent;
@@ -20,11 +21,6 @@ import sune.app.mediadownloader.drm.util.StateMutex;
 public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	
 	private static final Logger logger = DRMLog.get();
-	
-	private static final double DEFAULT_FRAMERATE = 24.0;
-	// Default VB-Audio Virtual Cable settings
-	private static final int AUDIO_MAX_LATENCY_SAMPLES = 7168;
-	private static final int AUDIO_OUTPUT_SAMPLE_RATE = 44100;
 	
 	private final DRMContext context;
 	private final double duration;
@@ -53,9 +49,9 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 		started.set(true);
 		context.eventRegistry().call(AnalyzeEvent.BEGIN, context);
 		try {
-			double audioOffset = (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE;
-			int sampleRate = AUDIO_OUTPUT_SAMPLE_RATE;
-			double frameRate = DEFAULT_FRAMERATE;
+			double audioOffset = (-2.0 * DRMConstants.AUDIO_MAX_LATENCY_SAMPLES) / DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
+			int sampleRate = DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
+			double frameRate = DRMConstants.DEFAULT_FRAMERATE;
 			if(context.configuration().detectFPS()) {
 				tracker = new AnalyzeTracker(analyzeDuration);
 				TrackerManager manager = context.trackerManager();

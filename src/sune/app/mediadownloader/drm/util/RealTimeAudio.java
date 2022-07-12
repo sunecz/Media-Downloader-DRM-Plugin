@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMLog;
 
 public class RealTimeAudio {
@@ -36,7 +37,7 @@ public class RealTimeAudio {
 	}
 	
 	private static final int checkPort(int port) {
-		if(port < 1 || port > 65535)
+		if(port < DRMConstants.PORT_MIN || port > DRMConstants.PORT_MAX)
 			throw new IllegalArgumentException();
 		return port;
 	}
@@ -116,11 +117,8 @@ public class RealTimeAudio {
 			thread = null;
 		}
 		
-		if(server != null)
-			server.close();
-		
-		if(socket != null)
-			socket.close();
+		if(server != null) server.close();
+		if(socket != null) socket.close();
 		
 		if(exception != null)
 			throw exception;

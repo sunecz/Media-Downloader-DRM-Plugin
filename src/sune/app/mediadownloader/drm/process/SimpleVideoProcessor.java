@@ -21,7 +21,7 @@ import sune.app.mediadownloader.drm.util.FilesManager;
 import sune.app.mediadownloader.drm.util.ProcessManager;
 import sune.app.mediadownloader.drm.util.RecordInfo;
 
-public class SimpleVideoProcessor implements VideoProcessor {
+public final class SimpleVideoProcessor implements VideoProcessor {
 	
 	private static final Logger logger = DRMLog.get();
 	

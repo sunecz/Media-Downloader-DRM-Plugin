@@ -114,14 +114,13 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 		
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		
-		int sampleRate = recordInfo.sampleRate();
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_AUDIO);
 		trackerManager.setTracker(tracker);
 		trackerManager.update();
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
-		List<String> commands = FFMpegTrimCommandGenerator.forAudio(path, outputPath, sampleRate).commands(cutsInclude);
+		List<String> commands = FFMpegTrimCommandGenerator.forAudio(path, outputPath, recordInfo.sampleRate()).commands(cutsInclude);
 		for(String command : commands) {
 			try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 				if(logger.isDebugEnabled())

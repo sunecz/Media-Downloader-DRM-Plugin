@@ -53,8 +53,6 @@ import sune.util.load.ModuleLoader;
 
 public final class DRMBootstrap {
 	
-	private static final int TIMEOUT = 8000;
-	
 	private final List<Library> libraries = new ArrayList<>();
 	private final String pathPrefixLib = "lib/drm/";
 	private final String versionLib = "0001";
@@ -416,7 +414,7 @@ public final class DRMBootstrap {
 				boolean allowNullLocalEntry) throws Exception {
 			if(!NIO.exists(baseDir)) NIO.createDir(baseDir);
 			Path localPath = PathSystem.getPath(clazz, "");
-			Updater.checkResources(baseURL, baseDir, TIMEOUT, checkListener(), checker,
+			Updater.checkResources(baseURL, baseDir, DRMConstants.TIMEOUT, checkListener(), checker,
 				(url, file) -> download(Utils.url(url), ensurePathInDirectory(file, baseDir, true)),
 				(file, webDir) -> Utils.urlConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
 				(file) -> ensurePathInDirectory(file, baseDir, true),

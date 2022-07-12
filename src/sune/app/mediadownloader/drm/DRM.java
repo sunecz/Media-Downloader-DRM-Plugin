@@ -29,10 +29,6 @@ public final class DRM {
 	private static boolean CEF_LOG_ENABLED = false;
 	private static final UUID uuid = UUID.randomUUID();
 	
-	// Proxy settings
-	public static final String PROXY_DOMAIN = "localhost";
-	public static final int PROXY_PORT = 9876;
-	
 	private static final String[] cefAppArgs;
 	private static boolean cefStarted;
 	private static CefApp cefApp;
@@ -51,7 +47,7 @@ public final class DRM {
 		list.add("--disable-gpu"); // Enable software rendering only to be able to record the video output
 		list.add("--disable-gpu-vsync");
 		list.add("--disable-gpu-compositing");
-		list.add("--proxy-server=" + PROXY_DOMAIN + ":" + PROXY_PORT);
+		list.add("--proxy-server=" + DRMConstants.PROXY_DOMAIN + ":" + DRMConstants.PROXY_PORT);
 		list.add("--ignore-certificate-errors");
 		cefAppArgs = list.toArray(String[]::new);
 	}
@@ -120,7 +116,7 @@ public final class DRM {
 		CefClient client = getApplication().createClient();
 		DRMProxy proxy;
 		try {
-			proxy = new DRMProxy(PROXY_PORT, resolver).create();
+			proxy = new DRMProxy(DRMConstants.PROXY_PORT, resolver).create();
 		} catch(RootCertificateException ex) {
 			throw new IllegalStateException("Unable to create proxy", ex);
 		}

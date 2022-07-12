@@ -18,6 +18,7 @@ import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
+import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.RecordEvent;
@@ -36,12 +37,7 @@ import sune.app.mediadownloader.drm.util.WindowsKill;
 public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private static final Logger logger = DRMLog.get();
-	
 	private static final Pattern PATTERN_LINE_PROGRESS = Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
-	
-	// TODO: Should probably be replaced by some dynamic value
-	private static final double SILENCE_THRESHOLD = -90.0;
-	private static final int AUDIO_LISTEN_PORT = 9877;
 	
 	private final DRMContext context;
 	private final Path recordPath;
@@ -63,7 +59,9 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private volatile double pauseTime = -1.0;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
+	
 	private RealTimeAudio audio;
+	private volatile double lastAudioTime = 0.0;
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -94,7 +92,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		return path.resolveSibling(Utils.fileNameNoType(fileName) + ".mkv");
 	}
 	
-	private final void ffmpegOutputHandler(String line) {
+	private final void recordUpdated(String line) {
 		if(logger.isDebugEnabled())
 			logger.debug("FFMpeg | {}", line);
 		
@@ -114,15 +112,10 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		metrics.updateRecord(recordTime, recordFrames, recordFPS);
 	}
 	
-	private volatile double lastAudioTime = 0.0;
-	
 	private final void audioUpdated(AudioVolume audioVolume) {
-		if(audioVolume.volume() > SILENCE_THRESHOLD) {
+		if(audioVolume.volume() > DRMConstants.DEFAULT_SILENCE_THRESHOLD) {
 			lastAudioTime = audioVolume.time();
 		}
-		
-		// TODO: Remove
-		//logger.debug("audioUpdated :: time={}, volume={}", audioVolume.time(), audioVolume.volume());
 	}
 	
 	private final String getRecordFFMpegCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle) {
@@ -141,18 +134,25 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		builder.append(" -c:a pcm_s16le -ac 2 -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
 		builder.append(" -preset ultrafast -tune zerolatency -crf 18 -qp 0 -pix_fmt rgb24"); // Performance settings
 		builder.append(" -vf setpts=N/FR/TB"); // Ensure correct timestamps on pause/resume
-		//builder.append(" -af asetpts=N/SR/TB"); // Ensure correct timestamps on pause/resume
 		
-		builder.append(" -af asetpts=N/SR/TB,asetnsamples=%{nsamples}d,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=\\'tcp\\://127.0.0.1\\:%{audio_server_port}d\\':direct=1");
+		StringBuilder af = new StringBuilder();
+		af.append(" asetpts=N/SR/TB"); // Ensure correct timestamps on pause/resume
+		af.append(",asetnsamples=%{nsamples}d"); // Set information "precision"
+		af.append(",astats=metadata=1:reset=1"); // Set information "frequency"
+		af.append(",ametadata=print:key=lavfi.astats.Overall.RMS_level"); // Get the audio volume level
+		af.append(":file=\\'tcp\\://127.0.0.1\\:%{audio_server_port}d\\'"); // Send data to a TCP server (to reduce stdout)
+		af.append(":direct=1"); // Avoid buffering, so it is "real-time"
+		builder.append(" -af").append(af.toString()); // Set the built audio filter
 		
-		builder.append(" -hide_banner -loglevel warning -stats -stats_period %{progress_interval}s");
-		builder.append(" \"%{output}s\"");
+		builder.append(" -hide_banner -loglevel warning"); // Make it less verbose
+		builder.append(" -stats -stats_period %{progress_interval}s"); // Show stats and change them faster
+		builder.append(" \"%{output}s\""); // Specify output file
 		
 		String command = Utils.format(builder.toString(),
 			"audio_device_name", audioDeviceName,
 			"sample_rate", sampleRate,
-			"nsamples", 44100 / 1000,
-			"audio_server_port", AUDIO_LISTEN_PORT,
+			"nsamples", sampleRate / DRMConstants.MS_IN_SEC,
+			"audio_server_port", DRMConstants.AUDIO_LISTEN_SERVER_PORT,
 			"audio_offset", DRMUtils.toString(audioOffset),
 			"window_title", windowTitle,
 			"frame_rate", DRMUtils.toString(frameRate),
@@ -165,14 +165,14 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private synchronized void startRecord() throws Exception {
 		recordActive.set(false);
 		
-		audio = new RealTimeAudio(AUDIO_LISTEN_PORT);
+		audio = new RealTimeAudio(DRMConstants.AUDIO_LISTEN_SERVER_PORT);
 		audio.listen(this::audioUpdated);
 		
 		tracker = new RecordTracker(duration);
 		TrackerManager manager = context.trackerManager();
 		manager.setTracker(tracker);
 		manager.setUpdateListener(() -> context.eventRegistry().call(RecordEvent.UPDATE, new Pair<>(context, manager)));
-		process = context.processManager().ffmpeg(this::ffmpegOutputHandler);
+		process = context.processManager().ffmpeg(this::recordUpdated);
 		String windowTitle = context.browserContext().title();
 		String audioDeviceName = context.audioDeviceName();
 		String command = getRecordFFMpegCommand(audioDeviceName, frameRate, sampleRate, windowTitle);
@@ -218,9 +218,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			throw new IllegalStateException("FFMpeg not ready");
 		if(!videoPlaying.get()) return; // Video not playing
 		
+		// Get the current time as soon as possible in the method
 		double recordTime = metrics.recordTime() - 0.5 / frameRate;
-		
-		logger.debug("pauseRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
 		
 		if(logger.isDebugEnabled())
 			logger.debug("Record paused");
@@ -237,9 +236,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			throw new IllegalStateException("FFMpeg not ready");
 		if(videoPlaying.get()) return; // Video already playing
 		
+		// Get the current time as soon as possible in the method
 		double recordTime = metrics.recordTime() - 0.5 / frameRate;
-		
-		logger.debug("resumeRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
 		
 		if(logger.isDebugEnabled())
 			logger.debug("Record resumed");
@@ -247,38 +245,21 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(pauseTime >= 0.0) {
 			double startTime = pauseTime;
 			double endTime = recordTime;
-			videoCuts.add(new Cut.OfDouble(startTime, endTime));
-			pauseTime = -1.0;
+			Cut.OfDouble cutVideo = new Cut.OfDouble(startTime, endTime);
+			videoCuts.add(cutVideo);
+			
+			if(logger.isDebugEnabled())
+				logger.debug("Cut video: {}", cutVideo);
 			
 			double length = endTime - startTime;
-			
-			// Cut can happen either in Audio or in Silence:
-			// (1) Happened in Audio (audio_volume > silence_threshold)
-			//     -> Cut = (end(last_audio_in_cut), Cut_End + (end(last_audio_in_cut) - Cut_Start))
-			// (2) Happened in Silence (audio_volume <= silence_threshold)
-			//     -> Cut = (Cut_Start, Cut_End)
-			// For all cuts, it should be true that:
-			//     length(Cut_Video) == length(Cut_Audio)
-			
 			double lat = lastAudioTime;
-			logger.debug("lastAudioTime={}", lat);
-			logger.debug("startTime={}, endTime={}", startTime, endTime);
+			Cut.OfDouble cutAudio = new Cut.OfDouble(lat, lat + length);
+			audioCuts.add(cutAudio);
 			
-			/*double audioEnd = Math.max(startTime, lat);
-			if(DRMUtils.lte(audioEnd, endTime)) {
-				Cut.OfDouble c = new Cut.OfDouble(audioEnd, endTime + (audioEnd - startTime));
-				logger.debug("AUDIO CUT: {}", c);
-				audioCuts.add(c);
-			} else {
-				// TODO: Still add the cut?
-				logger.debug("NO CUT");
-			}*/
+			if(logger.isDebugEnabled())
+				logger.debug("Cut audio: {}", cutAudio);
 			
-			// Start time of the audio cut is circa +0.032s
-			
-			Cut.OfDouble c = new Cut.OfDouble(lat, lat + length);
-			logger.debug("AUDIO CUT: {}", c);
-			audioCuts.add(c);
+			pauseTime = -1.0;
 		}
 		videoPlaying.set(true);
 	}

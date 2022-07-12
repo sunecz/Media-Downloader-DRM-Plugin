@@ -35,6 +35,56 @@ public class DRMProxy {
 	private static final String DEFAULT_MIME_TYPE = "application/octet-stream";
 	private static final String DEFAULT_CHARSET_NAME = StandardCharsets.UTF_8.name();
 	
+	private final int port;
+	private final DRMResolver resolver;
+	private HttpProxyServerBootstrap serverBootstrap;
+	private HttpProxyServer server;
+	
+	DRMProxy(int port, DRMResolver resolver) {
+		this.port = port;
+		this.resolver = resolver;
+	}
+	
+	private static final ResponseInfo getResponseInfo(HttpResponse response) {
+		String contentType = response.headers().get("Content-Type");
+		String mimeType = DEFAULT_MIME_TYPE;
+		String charsetName = DEFAULT_CHARSET_NAME;
+		if(contentType != null) {
+			String[] parts = contentType.split(";");
+			mimeType = parts[0];
+			if(parts.length > 1) {
+				charsetName = parts[1].stripLeading().replaceAll("^charset=", "");
+			}
+		}
+		return new ResponseInfo(mimeType, charsetName);
+	}
+	
+	private static final FullHttpResponse newSuccessResponse(ByteBuf buf) {
+		return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buf);
+	}
+	
+	public DRMProxy create() throws RootCertificateException {
+		serverBootstrap = DefaultHttpProxyServer.bootstrap().withPort(port)
+			.withManInTheMiddle(new CertificateSniffingMitmManager())
+			.withFiltersSource(new DRMHttpFiltersSource(resolver));
+		return this;
+	}
+	
+	public void start() {
+		if(server != null)
+			throw new IllegalStateException("Proxy is already running");
+		if(serverBootstrap == null)
+			throw new IllegalStateException("Proxy not created yet");
+		server = serverBootstrap.start();
+		serverBootstrap = null;
+	}
+	
+	public void stop() {
+		if(server == null)
+			throw new IllegalStateException("Proxy is not running");
+		server.stop();
+	}
+	
 	private static final class ResponseInfo {
 		
 		private final String mimeType;
@@ -60,62 +110,18 @@ public class DRMProxy {
 		}
 	}
 	
-	private final int port;
-	private final DRMResolver resolver;
-	private HttpProxyServerBootstrap serverBootstrap;
-	private HttpProxyServer server;
-	
-	DRMProxy(int port, DRMResolver resolver) {
-		this.port = port;
-		this.resolver = resolver;
-	}
-	
-	public DRMProxy create() throws RootCertificateException {
-		serverBootstrap = DefaultHttpProxyServer.bootstrap().withPort(port)
-			.withManInTheMiddle(new CertificateSniffingMitmManager())
-			.withFiltersSource(new DRMHttpFiltersSource());
-		return this;
-	}
-	
-	public void start() {
-		if(server != null)
-			throw new IllegalStateException("Proxy is already running");
-		if(serverBootstrap == null)
-			throw new IllegalStateException("Proxy not created yet");
-		server = serverBootstrap.start();
-		serverBootstrap = null;
-	}
-	
-	public void stop() {
-		if(server == null)
-			throw new IllegalStateException("Proxy is not running");
-		server.stop();
-	}
-	
-	private static final ResponseInfo getResponseInfo(HttpResponse response) {
-		String contentType = response.headers().get("Content-Type");
-		String mimeType = DEFAULT_MIME_TYPE;
-		String charsetName = DEFAULT_CHARSET_NAME;
-		if(contentType != null) {
-			String[] parts = contentType.split(";");
-			mimeType = parts[0];
-			if(parts.length > 1) {
-				charsetName = parts[1].stripLeading().replaceAll("^charset=", "");
-			}
+	private static final class DRMHttpFiltersSource implements HttpFiltersSource {
+		
+		private final DRMResolver resolver;
+		
+		public DRMHttpFiltersSource(DRMResolver resolver) {
+			this.resolver = resolver;
 		}
-		return new ResponseInfo(mimeType, charsetName);
-	}
-	
-	private static final FullHttpResponse newSuccessResponse(ByteBuf buf) {
-		return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buf);
-	}
-	
-	private class DRMHttpFiltersSource implements HttpFiltersSource {
 		
 		@Override
 		public HttpFilters filterRequest(HttpRequest originalRequest, ChannelHandlerContext clientCtx) {
 			if(originalRequest.getMethod() != HttpMethod.CONNECT)
-				return new DRMHttpFilters(originalRequest, clientCtx);
+				return new DRMHttpFilters(resolver, originalRequest, clientCtx);
 			if(clientCtx != null) {
 				String prefix = "https://" + originalRequest.getUri().replaceFirst(":443$", "");
 				clientCtx.channel().attr(ATTR_CONNECTED_URL).set(prefix);
@@ -134,12 +140,14 @@ public class DRMProxy {
 		}
 	}
 	
-	private class DRMHttpFilters extends HttpFiltersAdapter {
+	private static final class DRMHttpFilters extends HttpFiltersAdapter {
 		
+		private final DRMResolver resolver;
 		private String uri = null;
 		
-		public DRMHttpFilters(HttpRequest originalRequest, ChannelHandlerContext clientCtx) {
+		public DRMHttpFilters(DRMResolver resolver, HttpRequest originalRequest, ChannelHandlerContext clientCtx) {
 			super(originalRequest, clientCtx);
+			this.resolver = resolver;
 		}
 		
 		@Override

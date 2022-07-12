@@ -39,8 +39,8 @@ import sune.util.ssdf2.SSDCollection;
 public final class DRMInstance {
 	
 	private static final Logger logger = DRMLog.get();
-	private static final int BROWSER_DEFAULT_WIDTH = 800;
-	private static final int BROWSER_DEFAULT_HEIGHT = 600;
+	private static final int DEFAULT_BROWSER_WIDTH = 800;
+	private static final int DEFAULT_BROWSER_HEIGHT = 600;
 	
 	private final DRMInstanceMode mode;
 	private final DRMEngine engine;
@@ -159,7 +159,7 @@ public final class DRMInstance {
 		if(logger.isDebugEnabled())
 			logger.debug("Current mode: DRM Engine");
 		
-		int width = BROWSER_DEFAULT_WIDTH, height = BROWSER_DEFAULT_HEIGHT;
+		int width = DEFAULT_BROWSER_WIDTH, height = DEFAULT_BROWSER_HEIGHT;
 		Path output = configuration.output();
 		MediaQuality quality = configuration.mediaQuality();
 		DRMResolver resolver = engine.createResolver(context, url, output, quality);

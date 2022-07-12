@@ -10,6 +10,7 @@ import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
+import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMContext;
@@ -99,7 +100,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 			StringBuilder builder = new StringBuilder();
-			builder.append(" -y");
+			builder.append(" -y -hide_banner -v info");
 			builder.append(" -i \"%{input_video}s\"");
 			builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
 			builder.append(" -i \"%{input_audio}s\"");
@@ -119,9 +120,8 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		filesManager.delete(videoOutputPath);
 		filesManager.delete(audioOutputPath);
 		
-		// TODO: Re-enable
 		for(Path path : filesManager.pathsToDelete()) {
-			//NIO.delete(path);
+			NIO.delete(path);
 		}
 	}
 	

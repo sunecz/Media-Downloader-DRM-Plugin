@@ -24,7 +24,6 @@ public class DRMBrowser extends JFrame {
 	private static final long serialVersionUID = 1491787442060245403L;
 	
 	private static final Logger logger = DRMLog.get();
-	private static final String TITLE_FORMAT = "Media Downloader - DRM Browser [%s]";
 	
 	private final DRMClient client;
 	private volatile boolean isClosed = false;
@@ -150,7 +149,7 @@ public class DRMBrowser extends JFrame {
 		setAutoRequestFocus(false);
 		setFocusable(false);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		setTitle(String.format(TITLE_FORMAT, drmContext.uuid().toString()));
+		setTitle(String.format(DRMConstants.FRAME_TITLE_FORMAT, drmContext.uuid().toString()));
 		pack(); // Make sure the broswer fits into the window
 		setLocation(0, 0);
 		toBack(); // Make the window always in the back
