@@ -34,8 +34,8 @@ public class SimpleVideoProcessor implements VideoProcessor {
 	
 	private double duration;
 	
-	public SimpleVideoProcessor(TrackerManager trackerManager, ProcessManager processManager, FilesManager filesManager,
-			RecordInfo recordInfo, Path inputPath, Path outputPath) {
+	public SimpleVideoProcessor(TrackerManager trackerManager, ProcessManager processManager,
+			FilesManager filesManager, RecordInfo recordInfo, Path inputPath, Path outputPath) {
 		this.trackerManager = trackerManager;
 		this.processManager = processManager;
 		this.filesManager = filesManager;

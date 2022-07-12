@@ -1,29 +1,44 @@
 package sune.app.mediadownloader.drm.util;
 
-import java.util.Objects;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import sune.api.process.ReadOnlyProcess;
-import sune.app.mediadown.util.Utils;
+import org.slf4j.Logger;
+
+import sune.app.mediadownloader.drm.DRMLog;
 
 public class RealTimeAudio {
+	
+	private static final Logger logger = DRMLog.get();
 	
 	private static final Pattern REGEX_TIME   = Pattern.compile("^.*?pts_time:(-?\\d+(?:\\.\\d*)?)$");
 	private static final Pattern REGEX_VOLUME = Pattern.compile("^lavfi.astats.Overall.RMS_level=(-?\\d+(?:\\.\\d*)?)$");
 	
-	private final String audioDeviceName;
-	private final ProcessManager processManager;
-	private ReadOnlyProcess process;
+	private final int port;
 	private Consumer<AudioVolume> listener;
+	private volatile Thread thread;
+	private volatile Exception exception;
 	
 	private AudioVolume volume;
 	private AudioVolume temp;
 	
-	public RealTimeAudio(String audioDeviceName, ProcessManager processManager) {
-		this.audioDeviceName = Objects.requireNonNull(audioDeviceName);
-		this.processManager = Objects.requireNonNull(processManager);
+	private volatile ServerSocket server;
+	private volatile Socket socket;
+	
+	public RealTimeAudio(int port) {
+		this.port = checkPort(port);
+	}
+	
+	private static final int checkPort(int port) {
+		if(port < 1 || port > 65535)
+			throw new IllegalArgumentException();
+		return port;
 	}
 	
 	private final void notifyListener(AudioVolume av) {
@@ -57,17 +72,58 @@ public class RealTimeAudio {
 		}
 	}
 	
+	private final void execute() {
+		try(ServerSocket s = new ServerSocket(port)) {
+			server = s;
+			
+			if(logger.isDebugEnabled())
+				logger.debug("Waiting for a socket...");
+			
+			socket = server.accept();
+			
+			if(logger.isDebugEnabled())
+				logger.debug("Socket connected");
+			
+			try(BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+				for(String line; (line = reader.readLine()) != null; parseLine(line));
+			} finally {
+				try {
+					if(socket != null) {
+						socket.close();
+					}
+				} catch(IOException ex) {
+					exception = ex;
+				}
+			}
+		} catch(IOException ex) {
+			exception = ex;
+		} finally {
+			socket = null;
+			server = null;
+		}
+	}
+	
 	public void listen(Consumer<AudioVolume> listener) throws Exception {
-		process = processManager.ffmpeg(this::parseLine);
 		volume = new AudioVolume();
 		temp = new AudioVolume();
 		this.listener = listener; // Can be null
-		StringBuilder builder = new StringBuilder();
-		builder.append(" -f dshow -i audio=\"%{device_name}s\"");
-		builder.append(" -af asetnsamples=1000,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-:direct=1");
-		builder.append(" -f null -hide_banner -nostats -");
-		String command = Utils.format(builder.toString(), "device_name", audioDeviceName);
-		process.execute(command);
+		(thread = new Thread(this::execute)).start();
+	}
+	
+	public void close() throws Exception {
+		if(thread != null) {
+			thread.interrupt();
+			thread = null;
+		}
+		
+		if(server != null)
+			server.close();
+		
+		if(socket != null)
+			socket.close();
+		
+		if(exception != null)
+			throw exception;
 	}
 	
 	public AudioVolume volume() {

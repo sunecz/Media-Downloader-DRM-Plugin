@@ -35,13 +35,13 @@ import sune.app.mediadownloader.drm.util.WindowsKill;
 
 public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
-	// TODO: The cuts (both video and audio) are not precise, still frames and silence may still be present.
-	
 	private static final Logger logger = DRMLog.get();
 	
 	private static final Pattern PATTERN_LINE_PROGRESS = Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
+	
 	// TODO: Should probably be replaced by some dynamic value
 	private static final double SILENCE_THRESHOLD = -90.0;
+	private static final int AUDIO_LISTEN_PORT = 9877;
 	
 	private final DRMContext context;
 	private final Path recordPath;
@@ -109,64 +109,63 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			// Notify the thread that is checking if an error happened
 			threadInit.interrupt();
 			recordStarted = true;
-			
-			double lastAudioUpdateTime = lastAudioVolume.time() - recordTime;
-			audioAndRecordDiff = lastAudioUpdateTime;
-			
-			if(logger.isDebugEnabled())
-				logger.debug("audioAndRecordDiff={}", audioAndRecordDiff);
 		}
 		
 		metrics.updateRecord(recordTime, recordFrames, recordFPS);
 	}
 	
-	private volatile double lastAudioTime = -1.0;
-	private volatile double audioAndRecordDiff = 0.0;
-	private volatile AudioVolume lastAudioVolume;
+	private volatile double lastAudioTime = 0.0;
 	
 	private final void audioUpdated(AudioVolume audioVolume) {
-		double time = metrics.recordTime();
-		lastAudioVolume = audioVolume;
-		
 		if(audioVolume.volume() > SILENCE_THRESHOLD) {
-			lastAudioTime = time;
+			lastAudioTime = audioVolume.time();
 		}
 		
-		//logger.debug("audioUpdated :: recordTime={}, time={}, volume={}", time, audioVolume.time(), audioVolume.volume());
+		// TODO: Remove
+		//logger.debug("audioUpdated :: time={}, volume={}", audioVolume.time(), audioVolume.volume());
 	}
 	
 	private final String getRecordFFMpegCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle) {
 		StringBuilder builder = new StringBuilder();
 		builder.append(" -y"); // Rewrite the output file, if it exists
+		
 		builder.append(" -f dshow"); // Record audio
-		builder.append(" -thread_queue_size 1024 -probesize 8M -channels 2 -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
-		//builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
+		builder.append(" -thread_queue_size 1024 -probesize 8M -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
 		builder.append(" -i audio=\"%{audio_device_name}s\""); // Record specific audio input
+		
 		builder.append(" -f gdigrab"); // Record video
 		builder.append(" -thread_queue_size 1024 -probesize 64M -fflags +igndts -framerate %{frame_rate}s -draw_mouse 0"); // Input video settings
 		builder.append(" -i title=\"%{window_title}s\""); // Record specific window
+		
 		builder.append(" -c:v libx264rgb -r %{frame_rate}s"); // Output video settings
 		builder.append(" -c:a pcm_s16le -ac 2 -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
 		builder.append(" -preset ultrafast -tune zerolatency -crf 18 -qp 0 -pix_fmt rgb24"); // Performance settings
-		builder.append(" -af asetpts=N/SR/TB -vf setpts=N/FR/TB"); // Ensure correct timestamps on pause/resume
+		builder.append(" -vf setpts=N/FR/TB"); // Ensure correct timestamps on pause/resume
+		//builder.append(" -af asetpts=N/SR/TB"); // Ensure correct timestamps on pause/resume
+		
+		builder.append(" -af asetpts=N/SR/TB,asetnsamples=%{nsamples}d,astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file=\\'tcp\\://127.0.0.1\\:%{audio_server_port}d\\':direct=1");
+		
 		builder.append(" -hide_banner -loglevel warning -stats -stats_period %{progress_interval}s");
 		builder.append(" \"%{output}s\"");
+		
 		String command = Utils.format(builder.toString(),
 			"audio_device_name", audioDeviceName,
 			"sample_rate", sampleRate,
+			"nsamples", 44100 / 1000,
+			"audio_server_port", AUDIO_LISTEN_PORT,
 			"audio_offset", DRMUtils.toString(audioOffset),
 			"window_title", windowTitle,
 			"frame_rate", DRMUtils.toString(frameRate),
 			"output", recordPath.toAbsolutePath().toString(),
 			"progress_interval", DRMUtils.toString(1.0 / frameRate));
+		
 		return command;
 	}
 	
 	private synchronized void startRecord() throws Exception {
 		recordActive.set(false);
 		
-		String audioDeviceName = context.audioDeviceName();
-		audio = new RealTimeAudio(audioDeviceName, context.processManager());
+		audio = new RealTimeAudio(AUDIO_LISTEN_PORT);
 		audio.listen(this::audioUpdated);
 		
 		tracker = new RecordTracker(duration);
@@ -175,6 +174,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		manager.setUpdateListener(() -> context.eventRegistry().call(RecordEvent.UPDATE, new Pair<>(context, manager)));
 		process = context.processManager().ffmpeg(this::ffmpegOutputHandler);
 		String windowTitle = context.browserContext().title();
+		String audioDeviceName = context.audioDeviceName();
 		String command = getRecordFFMpegCommand(audioDeviceName, frameRate, sampleRate, windowTitle);
 		if(logger.isDebugEnabled())
 			logger.debug("Record command: ffmpeg{}", command);
@@ -218,7 +218,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			throw new IllegalStateException("FFMpeg not ready");
 		if(!videoPlaying.get()) return; // Video not playing
 		
-		double recordTime = metrics.recordTime();
+		double recordTime = metrics.recordTime() - 0.5 / frameRate;
 		
 		logger.debug("pauseRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
 		
@@ -226,7 +226,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Record paused");
 		
 		if(pauseTime < 0.0) {
-			pauseTime = recordTime - 1.0 / frameRate;
+			pauseTime = recordTime;
 		}
 		
 		videoPlaying.set(false);
@@ -237,7 +237,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			throw new IllegalStateException("FFMpeg not ready");
 		if(videoPlaying.get()) return; // Video already playing
 		
-		double recordTime = metrics.recordTime();
+		double recordTime = metrics.recordTime() - 0.5 / frameRate;
 		
 		logger.debug("resumeRecord | js_now={}, jv_now={}", data.now, System.currentTimeMillis());
 		
@@ -250,6 +250,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			videoCuts.add(new Cut.OfDouble(startTime, endTime));
 			pauseTime = -1.0;
 			
+			double length = endTime - startTime;
+			
 			// Cut can happen either in Audio or in Silence:
 			// (1) Happened in Audio (audio_volume > silence_threshold)
 			//     -> Cut = (end(last_audio_in_cut), Cut_End + (end(last_audio_in_cut) - Cut_Start))
@@ -259,13 +261,10 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			//     length(Cut_Video) == length(Cut_Audio)
 			
 			double lat = lastAudioTime;
-			logger.debug("lastAudioTime_pre={}", lat);
-			//lat = lat - audioAndRecordDiff;
 			logger.debug("lastAudioTime={}", lat);
-			logger.debug("lastSilenceStartTime={}", audio.lastSilenceStartTime());
 			logger.debug("startTime={}, endTime={}", startTime, endTime);
 			
-			double audioEnd = Math.max(startTime, lat);
+			/*double audioEnd = Math.max(startTime, lat);
 			if(DRMUtils.lte(audioEnd, endTime)) {
 				Cut.OfDouble c = new Cut.OfDouble(audioEnd, endTime + (audioEnd - startTime));
 				logger.debug("AUDIO CUT: {}", c);
@@ -273,7 +272,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			} else {
 				// TODO: Still add the cut?
 				logger.debug("NO CUT");
-			}
+			}*/
+			
+			// Start time of the audio cut is circa +0.032s
+			
+			Cut.OfDouble c = new Cut.OfDouble(lat, lat + length);
+			logger.debug("AUDIO CUT: {}", c);
+			audioCuts.add(c);
 		}
 		videoPlaying.set(true);
 	}
@@ -284,7 +289,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(logger.isDebugEnabled())
 			logger.debug("Sending quit command to the recording process...");
 		
-		Process p = process.getProcess();
+		Process p = process.process();
 		// Gracefully quit the recording process
 		byte[] cmdQuit = "q".getBytes();
 		p.getOutputStream().write(cmdQuit);
@@ -346,8 +351,9 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		} finally {
 			running.set(false);
 			if(!stopped.get()) {
-				done.set(true);
 				context.processManager().closeAll();
+				if(audio != null) audio.close();
+				done.set(true);
 				context.eventRegistry().call(RecordEvent.END, context);
 			}
 		}
@@ -358,6 +364,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(!running.get()) return; // Do not continue
 		running.set(false);
 		context.processManager().stop();
+		if(audio != null) audio.close();
 		mtxDone.unlock();
 		if(!done.get()) stopped.set(true);
 		context.eventRegistry().call(RecordEvent.END, context);

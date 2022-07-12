@@ -26,7 +26,7 @@ public final class ProcessManager {
 	private final void doWithProcesses(CheckedConsumer<ReadOnlyProcess> action) throws Exception {
 		Exception exception = null;
 		for(ReadOnlyProcess process : processes) {
-			if(process.getProcess() == null)
+			if(process.process() == null)
 				continue;
 			try {
 				action.accept(process);
@@ -52,13 +52,13 @@ public final class ProcessManager {
 	
 	public final void pause() throws Exception {
 		if(paused.get()) return;
-		doWithProcesses((p) -> ProcessUtils.pause(p.getProcess()));
+		doWithProcesses((p) -> ProcessUtils.pause(p.process()));
 		paused.set(true);
 	}
 	
 	public final void resume() throws Exception {
 		if(!paused.get()) return;
-		doWithProcesses((p) -> ProcessUtils.resume(p.getProcess()));
+		doWithProcesses((p) -> ProcessUtils.resume(p.process()));
 		paused.set(false);
 	}
 	

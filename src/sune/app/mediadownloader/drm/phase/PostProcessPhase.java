@@ -10,7 +10,6 @@ import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
-import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMContext;
@@ -20,6 +19,7 @@ import sune.app.mediadownloader.drm.process.SimpleAudioProcessor;
 import sune.app.mediadownloader.drm.process.SimpleVideoProcessor;
 import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
 import sune.app.mediadownloader.drm.util.DRMProcessUtils;
+import sune.app.mediadownloader.drm.util.DRMUtils;
 import sune.app.mediadownloader.drm.util.FFMpegTimeProgressParser;
 import sune.app.mediadownloader.drm.util.FilesManager;
 import sune.app.mediadownloader.drm.util.ProcessManager;
@@ -101,12 +101,13 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			StringBuilder builder = new StringBuilder();
 			builder.append(" -y");
 			builder.append(" -i \"%{input_video}s\"");
-			builder.append(" -itsoffset " + recordInfo.audioOffset()); // Fix video/audio desync
+			builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
 			builder.append(" -i \"%{input_audio}s\"");
 			builder.append(" -c:v copy");
 			builder.append(" \"%{output}s\"");
 			String command = Utils.format(builder.toString(),
 				"input_video", videoOutputPath.toAbsolutePath().toString(),
+				"audio_offset", DRMUtils.toString(recordInfo.audioOffset()),
 				"input_audio", audioOutputPath.toAbsolutePath().toString(),
 				"output", output.toAbsolutePath().toString());
 			if(logger.isDebugEnabled())
@@ -118,8 +119,9 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		filesManager.delete(videoOutputPath);
 		filesManager.delete(audioOutputPath);
 		
+		// TODO: Re-enable
 		for(Path path : filesManager.pathsToDelete()) {
-			NIO.delete(path);
+			//NIO.delete(path);
 		}
 	}
 	

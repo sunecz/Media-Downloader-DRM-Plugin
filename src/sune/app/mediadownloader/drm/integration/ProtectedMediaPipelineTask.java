@@ -277,7 +277,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		Path exePath = Path.of(ProcessHandle.current().info().command().orElseThrow()).toAbsolutePath();
 		Consumer<String> parser = new DownloadWidevineCDMProcessLineParser(dummyEventRegistry);
 		try(ReadOnlyProcess process = Processes.createAsynchronous(exePath, parser)) {
-			process.execute(IntegrationUtils.currentDirectory(), command);
+			process.execute(command, IntegrationUtils.currentDirectory());
 			// Wait for the process to finish
 			if(process.waitFor() != 0) {
 				throw new IllegalStateException("Unable to download Widevine CDM.");
