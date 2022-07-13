@@ -1,10 +1,12 @@
 (function() {
 	'use strict';
-	({
+
+	const _Record = {
 		_counter: 0,
 		_videoPlayer: null,
 		provide(name, data) { window.cefQuery({ request: (name && name.length ? name + ':' : '') + JSON.stringify({ ...data, now: Date.now() }) }); },
 		isVideo(node) { return node.tagName === 'VIDEO'; },
+		isElement(value) { return value instanceof Element || value instanceof HTMLDocument; },
 		vsyncInterval(callable) { const r = window.requestAnimationFrame, c = callable.bind(this), l = (() => { if(c() !== false) r(l); }); r(l); },
 		ensureButtonHolder() {
 			let holder = document.getElementById('sune-buttons-holder');
@@ -15,11 +17,11 @@
 			document.body.appendChild(holder);
 			return holder;
 		},
-		getPlaybackData(videoPlayer) {
+		playbackData(videoPlayer) {
 			const b = videoPlayer.buffered, l = b.length, buffered = l === 0 ? 0 : b.end(l - 1), q = videoPlayer.getVideoPlaybackQuality();
 			return { time: videoPlayer.currentTime, frame: q.totalVideoFrames - q.droppedVideoFrames, buffered: buffered };
 		},
-		injectVideoPlayer(videoPlayer) {
+		inject(videoPlayer) {
 			const videoPlayerID = this._counter++;
 			const button = document.createElement('button');
 			button.type = 'button';
@@ -27,7 +29,7 @@
 				+ 'border:none;border-radius:50%;font-size:0;box-shadow:0 0 8px 2px red;';
 			button.innerHTML = 'Play';
 			button.id = 'sune-button-' + videoPlayerID;
-			button.addEventListener('click', (e) => this.playVideoPlayer(videoPlayer), true);
+			button.addEventListener('click', (e) => this.play(videoPlayer), true);
 			videoPlayer.setAttribute('data-vid', videoPlayerID);
 			videoPlayer.style = 'transform:none!important;';
 			videoPlayer.addEventListener('playing', (e) => {
@@ -39,13 +41,13 @@
 				// Higher-resolution checking of video buffering since events waiting and canplay
 				// are NOT reliable.
 				if(!videoPlayer.checkInterval) {
-					videoPlayer.lastPlaybackData = this.getPlaybackData(videoPlayer);
+					videoPlayer.lastPlaybackData = this.playbackData(videoPlayer);
 					videoPlayer.isBuffering  = false;
 					videoPlayer.timeUpdated  = false;
 					videoPlayer.waitToBuffer = false;
 					videoPlayer.checkInterval = (() => {
 						const deltaPlaybackTime = videoPlayer.currentTime - videoPlayer.lastPlaybackData.time;
-						const playbackData = this.getPlaybackData(videoPlayer);
+						const playbackData = this.playbackData(videoPlayer);
 						if(!videoPlayer.isBuffering && deltaPlaybackTime == 0 && videoPlayer.timeUpdated) { // Video is buffering
 							videoPlayer.isBuffering = true;
 							videoPlayer.timeUpdated = false;
@@ -93,19 +95,19 @@
 				}
 			}, true);
 			videoPlayer.addEventListener('canplay', (e) => {
-				this.provide('canplay', this.getPlaybackData(videoPlayer));
+				this.provide('canplay', this.playbackData(videoPlayer));
 			}, true);
 			videoPlayer.addEventListener('ended', (e) => {
-				this.provide('ended', this.getPlaybackData(videoPlayer));
+				this.provide('ended', this.playbackData(videoPlayer));
 			}, true);
 			videoPlayer.addEventListener('pause', (e) => {
-				this.provide('waiting', this.getPlaybackData(videoPlayer));
+				this.provide('waiting', this.playbackData(videoPlayer));
 			}, true);
 			videoPlayer.addEventListener('playing', (e) => {
-				this.provide('playing', this.getPlaybackData(videoPlayer));
+				this.provide('playing', this.playbackData(videoPlayer));
 			}, true);
 		},
-		playVideoPlayer(videoPlayer) {
+		play(videoPlayer) {
 			videoPlayer.muted = false;
 			videoPlayer.loop = false;
 			videoPlayer.autoplay = false;
@@ -116,20 +118,68 @@
 			videoPlayer.currentTime = 0.0;
 			videoPlayer.requestFullscreen();
 		},
-		initialize() {
-			document.addEventListener('DOMContentLoaded', () => {
-				// Inject already present video players
-				document.querySelectorAll('video').forEach(this.fnc(this.injectVideoPlayer));
-				// Inject any new video players that may be added later on
-				(new MutationObserver((mutationsList) => {
-					mutationsList.forEach((mutation) => {
-						Array.prototype.filter.call(mutation.addedNodes, this.isVideo).forEach(this.fnc(this.injectVideoPlayer));
-						Array.prototype.filter.call(mutation.addedNodes, this.neg(this.isVideo))
-							.map((e) => e.nodeType === Node.ELEMENT_NODE ? Array.from(e.querySelectorAll('video')) : [])
-							.flat().forEach(this.fnc(this.injectVideoPlayer));
+		activate(selector_or_element) {
+			let element = null, is_element = false;
+
+			// Do just a quick arguments check
+			if(typeof selector_or_element !== 'string'
+					&& !(is_element = this.isElement(selector_or_element)))
+				return false;
+
+			// Check for a selector first since there must be some work done
+			if(!is_element) {
+				const selector = selector_or_element;
+				if((element = document.querySelector(selector)) === null) {
+					const observe = (() => {
+						const observer = new MutationObserver((mutationsList) => {
+							mutationsList.forEach((mutation) => {
+								let el = null;
+								for(const node of mutation.addedNodes) {
+									if(node.nodeType !== Node.ELEMENT_NODE)
+										continue;
+
+									if(node.matches(selector)) {
+										el = node;
+										break; // Element found, exit the loop
+									} else {
+										// Try to serach the element itself for the selector
+										if((el = node.querySelector(selector)) !== null) {
+											break; // Element found, exit the loop
+										}
+									}
+								}
+
+								if(el !== null) {
+									observer.disconnect();
+									this.inject(el);
+								}
+							});
+						});
+
+						observer.observe(document.body, { childList: true, subtree: true });
 					});
-				})).observe(document.body, { childList: true, subtree: true });
-			}, true);
+
+					if(document.body === null) {
+						const listener = function() {
+							observe();
+							document.removeEventListener('DOMContentLoaded', listener, true);
+						};
+						document.addEventListener('DOMContentLoaded', listener, true);
+					} else {
+						observe();
+					}
+				}
+			} else {
+				element = selector_or_element;
+			}
+
+			if(element === null)
+				return false; // No element found
+
+			this.inject(element);
+			return true; // Element found and activated
+		},
+		_initialize() {
 			// Make sure user cannot leave full-screen mode when the video is playing
 			document.addEventListener('dblclick', (e) => {
 				if(e.target !== document.fullscreenElement || !this._videoPlayer)
@@ -152,6 +202,11 @@
 		// Utility methods
 		fnc(f) { return f.bind(this); }, // Bind 'this' to the current object
 		obj(o) { return Object.fromEntries(Object.entries(o).map(([k, v], i) => [ k, v.bind(this) ])); }, // Bind 'this' to the current object
-		neg(f) { return function() { return !f(...arguments); }; }
-	}).initialize();
+		neg(f) { return function() { return !f(...arguments); }; },
+	};
+
+	_Record._initialize();
+
+	window.MediaDownloader = window.MediaDownloader || { DRM: {} };
+	window.MediaDownloader.DRM.Record = _Record;
 })();

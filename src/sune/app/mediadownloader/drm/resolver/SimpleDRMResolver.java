@@ -11,9 +11,7 @@ import sune.app.mediadown.media.MediaQuality;
 import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMResolver;
-import sune.app.mediadownloader.drm.util.DRMUtils;
-import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
-import sune.app.mediadownloader.drm.util.DRMUtils.Point2D;
+import sune.app.mediadownloader.drm.util.JS;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.util.ssdf2.SSDCollection;
 
@@ -34,19 +32,6 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 		this.url = url;
 		this.output = output;
 		this.quality = quality;
-	}
-	
-	protected void includeMainScript(CefFrame frame) {
-		DRMUtils.executeJSFile(frame, "/resources/drm/video-grabber.js");
-	}
-	
-	protected void includeHelperScripts(CefFrame frame) {
-		DRMUtils.executeJSFile(frame, "/resources/drm/helper.js");
-		String jsCSSCode = ""
-				+ "let style = document.createElement('style');"
-				+ "style.textContent = 'video::-webkit-media-controls{display:none!important;-webkit-appearance:none!important;}';"
-				+ "document.head.appendChild(style);";
-		frame.executeJavaScript(jsCSSCode, null, 0);
 	}
 	
 	/**
@@ -97,24 +82,7 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 				videoHeight = (int) json.getDirectDouble("height");
 				duration = json.getDirectDouble("duration");
 				vid = Integer.valueOf(json.getDirectInt("id"));
-				String buttonID = "sune-button-" + vid;
-				String jsCode = ""
-						+ "let button = document.getElementById('" + buttonID + "');"
-						+ "let ok = false, click = (e) => { ok = true; };"
-						+ "button.addEventListener('click', click, false);"
-						+ "let intr = setInterval(() => {"
-						+ "    if(ok) { clearInterval(intr); return; }"
-						+ "    const rect = button.getBoundingClientRect();"
-						+ "    const pos = currentFrameAbsolutePosition();"
-						+ "    rect.x += pos.x;"
-						+ "    rect.y += pos.y;"
-						+ "    ret(0, rect);"
-						+ "}, 100);";
-				browser.addJSRequest(new JSRequest("bbox-button", jsCode, (result) -> {
-					SSDCollection bbox = (SSDCollection) result;
-					Point2D center = DRMUtils.getCenter(DRMUtils.getBBox(bbox));
-					browser.accessor().click(center.x, center.y);
-				}).send(frame));
+				JS.Helper.click(browser, frame, "#sune-button-" + vid);
 				break;
 			case "fullscreen":
 				boolean isFullscreen = json.getDirectBoolean("value");

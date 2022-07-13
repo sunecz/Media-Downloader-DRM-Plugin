@@ -1,6 +1,7 @@
 package sune.app.mediadownloader.drm.util;
 
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -9,8 +10,9 @@ import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
 
 import sune.app.mediadown.media.MediaQuality;
+import sune.app.mediadown.media.MediaQuality.AudioQualityValue;
 import sune.app.mediadown.media.MediaResolution;
-import sune.app.mediadownloader.drm.util.DRMUtils.AudioQuality;
+import sune.app.mediadown.media.MediaType;
 
 public final class MPDQualityModifier {
 	
@@ -18,6 +20,16 @@ public final class MPDQualityModifier {
 	
 	MPDQualityModifier(Document xml) {
 		this.xml = xml;
+	}
+	
+	private static final MediaQuality audioQualityFromBitRate(int bitRate) {
+		if(bitRate <= 0.0) return MediaQuality.UNKNOWN;
+		AudioQualityValue value = new AudioQualityValue(0, 0, bitRate);
+		return Stream.of(MediaQuality.validQualities())
+				     .filter((q) -> q.mediaType().is(MediaType.AUDIO))
+				     .sorted(MediaQuality.reversedComparatorKeepOrder())
+				     .filter((q) -> Integer.compare(value.bitRate(), ((AudioQualityValue) q.value()).bitRate()) >= 0)
+				     .findFirst().orElse(MediaQuality.UNKNOWN);
 	}
 	
 	public static final MPDQualityModifier fromString(String content) {
@@ -52,11 +64,10 @@ public final class MPDQualityModifier {
 	}
 	
 	private final void modifyAudio(Element adaptSet, MediaQuality wantedQuality) {
-		AudioQuality wantedAudioQuality = AudioQuality.fromMediaQuality(wantedQuality);
-		removeRepresentations(adaptSet, AudioQuality.UNKNOWN, wantedAudioQuality, (repr) -> {
+		removeRepresentations(adaptSet, MediaQuality.UNKNOWN, wantedQuality, (repr) -> {
 			int bandwidth = Integer.valueOf(repr.attr("bandwidth"));
-			double bitRate = bandwidth / 1000.0;
-			return AudioQuality.fromBitRate(bitRate);
+			int bitRate = bandwidth / 1000;
+			return audioQualityFromBitRate(bitRate);
 		});
 	}
 	

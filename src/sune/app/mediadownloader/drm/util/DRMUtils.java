@@ -2,10 +2,8 @@ package sune.app.mediadownloader.drm.util;
 
 import java.awt.Component;
 import java.awt.event.MouseEvent;
-import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -14,10 +12,7 @@ import java.util.stream.Stream;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 
-import sune.app.mediadown.media.MediaQuality;
-import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.util.Reflection;
-import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;
 
@@ -27,6 +22,71 @@ public final class DRMUtils {
 	
 	// Forbid anyone to create an instance of this class
 	private DRMUtils() {
+	}
+	
+	public static final boolean eq(double a, double b) {
+		return eq(a, b, EPSILON);
+	}
+	
+	public static final boolean eq(double a, double b, double epsilon) {
+		return Math.abs(a - b) <= epsilon;
+	}
+	
+	public static final boolean lte(double a, double b) {
+		return lte(a, b, EPSILON);
+	}
+	
+	public static final boolean lte(double a, double b, double epsilon) {
+		return a - b <= epsilon;
+	}
+	
+	public static final boolean gte(double a, double b) {
+		return gte(a, b, EPSILON);
+	}
+	
+	public static final boolean gte(double a, double b, double epsilon) {
+		return b - a <= epsilon;
+	}
+	
+	public static final String format(String format, Object... args) {
+		return String.format(Locale.US, format, args);
+	}
+	
+	public static final String toString(double val) {
+		return format("%.6f", val);
+	}
+	
+	public static final class Point2D {
+		
+		public final int x, y;
+		
+		public Point2D(int x, int y) {
+			this.x = x;
+			this.y = y;
+		}
+	}
+	
+	public static final class BBox {
+		
+		public final int x, y, width, height;
+		
+		public BBox(int x, int y, int width, int height) {
+			this.x = x;
+			this.y = y;
+			this.width = width;
+			this.height = height;
+		}
+		
+		public BBox(SSDCollection bbox) {
+			this.x = (int) bbox.getDirectDouble("x");
+			this.y = (int) bbox.getDirectDouble("y");
+			this.width = (int) bbox.getDirectDouble("width");
+			this.height = (int) bbox.getDirectDouble("height");
+		}
+		
+		public Point2D center() {
+			return new Point2D(x + width / 2, y + height / 2);
+		}
 	}
 	
 	public static final class BrowserAccessor {
@@ -101,7 +161,7 @@ public final class DRMUtils {
 			this.requestName = Objects.requireNonNull(requestName);
 			this.jsCode = Objects.requireNonNull(jsCode);
 			@SuppressWarnings("unchecked")
-			Consumer<SSDNode>[] _callbacks = Stream.of(callbacks).filter((c) -> c != null).toArray(Consumer[]::new);
+			Consumer<SSDNode>[] _callbacks = Stream.of(callbacks).filter(Objects::nonNull).toArray(Consumer[]::new);
 			this.results = new SSDNode[_callbacks.length];
 			this.callbacks = _callbacks;
 		}
@@ -146,139 +206,5 @@ public final class DRMUtils {
 		public SSDNode[] results() {
 			return results;
 		}
-	}
-	
-	// Bit rates taken from https://en.wikipedia.org/wiki/Bit_rate#MP3
-	public static enum AudioQuality {
-		
-		// The order is important!
-		UNKNOWN(true),
-		LOW    (96.0),
-		MEDIUM (192.0),
-		HIGH   ();
-		
-		private final double maxBitRate; // In kbps
-		
-		// Special constructor for UNKNOWN quality
-		private AudioQuality(boolean isUnknown) {
-			this.maxBitRate = -1;
-		}
-		
-		// Special constructor for the highest recognized quality
-		private AudioQuality() {
-			this.maxBitRate = Integer.MAX_VALUE;
-		}
-		
-		// Normal constructor for other qualities
-		private AudioQuality(double maxBitRate) {
-			if(maxBitRate <= 0)
-				throw new IllegalArgumentException("Invalid maximum bit rate");
-			this.maxBitRate = maxBitRate;
-		}
-		
-		public static final AudioQuality fromBitRate(double bitRate) {
-			for(AudioQuality quality : values()) {
-				if(bitRate <= quality.maxBitRate)
-					return quality;
-			}
-			return AudioQuality.UNKNOWN;
-		}
-		
-		public static final AudioQuality fromMediaQuality(MediaQuality quality) {
-			if(quality == MediaQuality.UNKNOWN)
-				return UNKNOWN;
-			if(quality.compareTo(MediaQuality.fromString("medium", MediaType.AUDIO)) < 0)
-				return LOW;
-			if(quality.compareTo(MediaQuality.fromString("high", MediaType.AUDIO)) < 0)
-				return MEDIUM;
-			return HIGH;
-		}
-		
-		public double maxBitRate() {
-			return maxBitRate;
-		}
-		
-		public double minBitRate() {
-			if(this == UNKNOWN)
-				return -1;
-			return Math.nextUp(values()[ordinal() - 1].maxBitRate);
-		}
-	}
-	
-	public static final class Point2D {
-		
-		public final int x, y;
-
-		public Point2D(int x, int y) {
-			this.x = x;
-			this.y = y;
-		}
-	}
-	
-	public static final class BBox {
-		
-		public final int x, y, width, height;
-
-		public BBox(int x, int y, int width, int height) {
-			this.x = x;
-			this.y = y;
-			this.width = width;
-			this.height = height;
-		}
-	}
-	
-	public static final boolean executeJSFile(CefFrame frame, String path) {
-		try(InputStream stream = IntegrationUtils.resourceStream(path)) {
-			String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-			frame.executeJavaScript(content, null, 0);
-			return true;
-		} catch(Exception ex) {
-			ex.printStackTrace();
-		}
-		return false;
-	}
-	
-	public static final BBox getBBox(SSDCollection bbox) {
-		int x = (int) bbox.getDirectDouble("x");
-		int y = (int) bbox.getDirectDouble("y");
-		int w = (int) bbox.getDirectDouble("width");
-		int h = (int) bbox.getDirectDouble("height");
-		return new BBox(x, y, w, h);
-	}
-	
-	public static final Point2D getCenter(BBox bbox) {
-		return new Point2D(bbox.x + bbox.width / 2, bbox.y + bbox.height / 2);
-	}
-	
-	public static final boolean eq(double a, double b) {
-		return eq(a, b, EPSILON);
-	}
-	
-	public static final boolean eq(double a, double b, double epsilon) {
-		return Math.abs(a - b) <= epsilon;
-	}
-	
-	public static final boolean lte(double a, double b) {
-		return lte(a, b, EPSILON);
-	}
-	
-	public static final boolean lte(double a, double b, double epsilon) {
-		return a - b <= epsilon;
-	}
-	
-	public static final boolean gte(double a, double b) {
-		return gte(a, b, EPSILON);
-	}
-	
-	public static final boolean gte(double a, double b, double epsilon) {
-		return b - a <= epsilon;
-	}
-	
-	public static final String format(String format, Object... args) {
-		return String.format(Locale.US, format, args);
-	}
-	
-	public static final String toString(double val) {
-		return format("%.6f", val);
 	}
 }
