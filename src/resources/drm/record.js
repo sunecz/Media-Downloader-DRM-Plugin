@@ -76,7 +76,11 @@
 				}
 			}, true);
 			videoPlayer.addEventListener('loadedmetadata', (e) => {
-				this.ensureButtonHolder().appendChild(button); // Add the button
+				const holder = this.ensureButtonHolder();
+				console.log("hasChildNodes", holder.hasChildNodes());
+				if(!holder.hasChildNodes()) {
+					holder.appendChild(button); // Add the button
+				}
 				this.provide('metadata', {
 					width:    videoPlayer.videoWidth,
 					height:   videoPlayer.videoHeight,
@@ -184,6 +188,9 @@
 			document.addEventListener('dblclick', (e) => {
 				if(e.target !== document.fullscreenElement || !this._videoPlayer)
 					return; // Not the video player or it is not playing yet
+				e.preventDefault();
+				e.stopPropagation();
+
 				let is_fullscreen = document.fullscreenElement !== null;
 				if(is_fullscreen) {
 					const intr = (() => {
@@ -197,6 +204,16 @@
 				} else {
 					this._videoPlayer.requestFullscreen();
 				}
+			}, true);
+
+			// Disable click on a video to play/pause it
+			document.addEventListener('click', (e) => {
+				if(e.target !== document.fullscreenElement
+						|| !this._videoPlayer
+						|| this._videoPlayer !== document.fullscreenElement)
+					return; // Not the video player or it is not playing yet
+				e.preventDefault();
+				e.stopPropagation();
 			}, true);
 		},
 		// Utility methods

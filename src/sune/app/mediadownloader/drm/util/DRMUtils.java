@@ -154,19 +154,30 @@ public final class DRMUtils {
 		private SSDNode[] results;
 		private int resultIndex;
 		private Consumer<SSDNode>[] callbacks;
-		private boolean waiting;
+		private volatile boolean waiting;
 		
 		@SafeVarargs
 		public JSRequest(String requestName, String jsCode, Consumer<SSDNode>... callbacks) {
 			this.requestName = Objects.requireNonNull(requestName);
-			this.jsCode = Objects.requireNonNull(jsCode);
+			this.jsCode = jsCode;
 			@SuppressWarnings("unchecked")
 			Consumer<SSDNode>[] _callbacks = Stream.of(callbacks).filter(Objects::nonNull).toArray(Consumer[]::new);
 			this.results = new SSDNode[_callbacks.length];
 			this.callbacks = _callbacks;
 		}
 		
+		@SafeVarargs
+		public static final JSRequest ofNoop(String requestName, Consumer<SSDNode>... callbacks) {
+			return new JSRequest(requestName, null, callbacks);
+		}
+		
+		@SafeVarargs
+		public static final JSRequest of(String requestName, String jsCode, Consumer<SSDNode>... callbacks) {
+			return new JSRequest(requestName, Objects.requireNonNull(jsCode), callbacks);
+		}
+		
 		public JSRequest send(CefFrame frame) {
+			if(jsCode == null) return this; // Noop
 			String codeQuery = "window.cefQuery({request:'" + requestName + ".'+i+':'+JSON.stringify({'data':d})});";
 			String code = "(new Promise((_rs,_rj)=>{const ret=function(i,d){" + codeQuery + "_rs(0)};" + jsCode + "}))";
 			frame.executeJavaScript(code, null, 0);
@@ -190,7 +201,7 @@ public final class DRMUtils {
 			callbacks[index].accept(results[index]);
 		}
 		
-		public void setResult(int index, SSDNode result) {
+		public void resolve(int index, SSDNode result) {
 			synchronized(mtx) {
 				this.results[index] = result;
 				this.resultIndex = index;

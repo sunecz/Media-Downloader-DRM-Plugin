@@ -13,6 +13,7 @@ import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import org.cef.browser.CefBrowser;
+import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
 import sune.app.mediadownloader.drm.util.DRMUtils.BrowserAccessor;
@@ -156,8 +157,8 @@ public class DRMBrowser extends JFrame {
 	}
 	
 	// Shortcut method
-	public void addJSRequest(JSRequest result) {
-		client.addJSRequest(result);
+	public void addJSRequest(CefFrame frame, JSRequest result) {
+		client.addJSRequest(frame, result);
 	}
 	
 	private final void close() {

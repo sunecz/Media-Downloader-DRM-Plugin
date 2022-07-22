@@ -17,6 +17,7 @@ import sune.app.mediadownloader.drm.util.DRMUtils.BBox;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.app.mediadownloader.drm.util.DRMUtils.Point2D;
 import sune.util.ssdf2.SSDCollection;
+import sune.util.ssdf2.SSDNode;
 
 public final class JS {
 	
@@ -73,6 +74,10 @@ public final class JS {
 			JS.include(frame, "/resources/drm/helper.js");
 		}
 		
+		public static final void includeStyle(CefFrame frame, String content) {
+			JS.execute(frame, String.format("MediaDownloader.DRM.Helper.includeStyle('%s');", escapeQS(content)));
+		}
+		
 		public static final void hideVideoElementStyle(CefFrame frame) {
 			JS.execute(frame, "MediaDownloader.DRM.Helper.hideVideoElementStyle();");
 		}
@@ -82,10 +87,10 @@ public final class JS {
 				"MediaDownloader.DRM.Helper.click('%s', (bbox) => ret(0, bbox));",
 				escapeQS(selector)
 			);
-			browser.addJSRequest(new JSRequest(Request.requestId("click"), code, (result) -> {
+			browser.addJSRequest(frame, new JSRequest(Request.requestId("click"), code, (result) -> {
 				Point2D center = (new BBox((SSDCollection) result)).center();
 				browser.accessor().click(center.x, center.y);
-			}).send(frame));
+			}));
 		}
 	}
 	
@@ -103,6 +108,27 @@ public final class JS {
 		
 		public static final String requestId(String prefix) {
 			return prefix + '-' + nextId(prefix);
+		}
+		
+		@SafeVarargs
+		public static final JSRequest ofNoop(String prefix, Consumer<SSDNode>... callbacks) {
+			return JSRequest.ofNoop(requestId(prefix), callbacks);
+		}
+		
+		@SafeVarargs
+		public static final JSRequest of(String prefix, String jsCode, Consumer<SSDNode>... callbacks) {
+			return JSRequest.of(requestId(prefix), jsCode, callbacks);
+		}
+	}
+	
+	public static final class Playback {
+		
+		// Forbid anyone to create an instance of this class
+		private Playback() {
+		}
+		
+		public static final void include(CefFrame frame) {
+			JS.include(frame, "/resources/drm/playback.js");
 		}
 	}
 }

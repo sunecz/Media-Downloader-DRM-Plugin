@@ -21,6 +21,7 @@ import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.MediaQuality;
 import sune.app.mediadown.pipeline.Pipeline;
+import sune.app.mediadown.util.Property;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
 import sune.app.mediadownloader.drm.event.DRMInstanceEvent;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
@@ -55,10 +56,12 @@ public final class DRMInstance {
 	private final AtomicReference<Exception> exception = new AtomicReference<>(null);
 	private final StateMutex mtxDone = new StateMutex();
 	private final StateMutex mtxReady = new StateMutex();
+	private final StateMutex mtxInit = new StateMutex();
 	
 	private PlaybackEventsHandler playbackEventsHandler;
-	private boolean playbackStarted = false;
-	private boolean playbackEnded = false;
+	private volatile boolean playbackStarted;
+	private volatile boolean playbackEnded;
+	private final AtomicBoolean playbackReady = new AtomicBoolean();
 	private PlaybackController playbackController;
 	private ProcessManager processManager;
 	private AudioDevice audioDevice;
@@ -142,6 +145,7 @@ public final class DRMInstance {
 		playbackController = new PlaybackController(browserContext.browser(), frame, videoID);
 		processManager = new ProcessManager();
 		pipeline.setInput(new InitializationPhaseInput(context, duration));
+		mtxInit.unlock();
 		mtxReady.await();
 		pipeline.start();
 	}
@@ -316,25 +320,69 @@ public final class DRMInstance {
 	}
 	
 	private final void playbackPause(PlaybackData data) {
+		if(!playbackStarted) return;
+		
 		if(logger.isDebugEnabled())
 			logger.debug("Video playback paused");
 		playbackController.pause();
 	}
 	
 	private final void playbackResume(PlaybackData data) {
+		if(!playbackStarted) return;
+		
 		if(logger.isDebugEnabled())
 			logger.debug("Video playback resumed");
 		playbackController.play();
 	}
 	
 	private final void playbackReady(PlaybackData data) {
-		if(playbackEnded) return; // Playback already ended, nothing to do
+		// Playback already ended, nothing to do
+		if(playbackEnded) return;
+		
 		if(logger.isDebugEnabled())
-			logger.debug("Playback ready");
+			logger.debug("Playback ready {}", data.time);
+		
 		// Video can be played (first time)
-		if(!playbackStarted && data.time == 0.0) {
-			mtxReady.unlock();
-			playbackStarted = true;
+		if(!playbackStarted) {
+			// Allow only one call to this procedure
+			if(!playbackReady.compareAndSet(false, true))
+				return;
+			
+			(new Thread(() -> {
+				Property<Double> time = new Property<>(data.time);
+				
+				// Time must be set to 0.0 seconds manually
+				if(time.getValue() != 0.0) {
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Time is not 0.0 seconds. Waiting for fields initialization...");
+					
+					// Ensure that the Playback controller is set
+					mtxInit.await();
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Fields initialization completed. Setting time to 0.0 seconds...");
+					
+					// Set the time to 0.0 seconds
+					StateMutex mtx = new StateMutex();
+					playbackController.time(0.0, true, () -> {
+						time.setValue(0.0);
+						mtx.unlock();
+					});
+					mtx.await();
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Time set to 0.0 seconds.");
+				}
+				
+				if(time.getValue() == 0.0) {
+					if(logger.isDebugEnabled())
+						logger.debug("Time is 0.0 seconds. All is ready.");
+					
+					playbackStarted = true;
+					mtxReady.unlock();
+				}
+			})).start();
 		}
 	}
 	
@@ -372,12 +420,19 @@ public final class DRMInstance {
 	
 	private final class Context implements DRMContext {
 		
+		private final AtomicBoolean isReady = new AtomicBoolean();
+		
 		@Override
 		public void ready(double duration, int videoID, long frameID) {
+			// Allow only one call to this method
+			if(!isReady.compareAndSet(false, true))
+				return;
+			
 			Path output = configuration.output();
 			if(logger.isDebugEnabled())
 				logger.debug("Record request: output={}, duration={}, videoID={}, frameID={}",
 				             output.toAbsolutePath().toString(), duration, videoID, frameID);
+			
 			try {
 				DRMInstance.this.doProcess(output, duration, videoID, frameID);
 			} catch(Exception ex) {

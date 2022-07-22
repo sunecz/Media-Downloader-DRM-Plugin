@@ -154,7 +154,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 					analyzeBuffered = true;
 					metrics.reset();
 					context.playbackController().pause(() -> {
-						context.playbackController().setTime(0.0, () -> {
+						context.playbackController().time(0.0, true, () -> {
 							context.playbackController().play();
 						});
 					});

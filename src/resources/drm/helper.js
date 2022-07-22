@@ -11,25 +11,34 @@
 				parent = current.parent;
 				for(let i = 0, len = parent.frames.length; i < len; ++i) {
 					if(parent.frames[i] === current) {
-						for(const frame of parent.document.getElementsByTagName('iframe')) {
-							if(frame.contentWindow === current) {
-								const rect = frame.getBoundingClientRect();
-								position.x += rect.x;
-								position.y += rect.y;
-								break;
+						try {
+							for(const frame of parent.document.getElementsByTagName('iframe')) {
+								if(frame.contentWindow === current) {
+									const rect = frame.getBoundingClientRect();
+									position.x += rect.x;
+									position.y += rect.y;
+									break;
+								}
 							}
+							current = parent;
+							break;
+						} catch(error) {
+							// Unable to obtain the parent document, probably because of cross-origin blocking.
+							// Just return the position so far.
+							return position;
 						}
-						current = parent;
-						break;
 					}
 				}
 			}
 			return position;
 		},
-		hideVideoElementStyle: function() {
+		includeStyle: function(content) {
 			const style = document.createElement('style');
-			style.textContent = 'video::-webkit-media-controls{display:none!important;-webkit-appearance:none!important;}';
+			style.textContent = content;
 			document.head.appendChild(style);
+		},
+		hideVideoElementStyle: function() {
+			this.includeStyle('video::-webkit-media-controls{display:none!important;-webkit-appearance:none!important;}');
 		},
 		querySelector: function(selector) {
 			return new Promise((resolve, reject) => {
@@ -118,6 +127,28 @@
 				    }
 				}, 100);
 			});
+		},
+		doRequest: function(request_name, callback) {
+			return new Promise((_rs,_rj) => {
+				// Pass the 'return' function as an argument
+				callback(function(i, d) {
+					window.cefQuery({ request: request_name + '.' + i + ':' + JSON.stringify({ 'data': d }) });
+					_rs(0);
+				});
+			});
+		},
+		doUserInteraction: function(callback) {
+			// Register listener, so that the click interaction can be caught
+			const click = ((e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				document.removeEventListener('click', click, true);
+				callback();
+			});
+			document.addEventListener('click', click, true);
+
+			// Request the click interaction from the application
+			this.doRequest('doUserInteraction', (ret) => ret(0, {}));
 		},
 	};
 

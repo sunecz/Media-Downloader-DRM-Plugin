@@ -308,17 +308,53 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		context.eventRegistry().call(RecordEvent.BEGIN, context);
 		try {
 			context.playbackEventsHandler(new RecordPhaseHandler());
-			context.playbackController().setTime(0.0, () -> {
-				new Thread(() -> {
+			
+			if(logger.isDebugEnabled())
+				logger.debug("Setting time to 0.0 seconds...");
+			
+			context.playbackController().time(0.0, true, () -> {
+				if(logger.isDebugEnabled())
+					logger.debug("Time set to 0.0 seconds. Starting recording...");
+				
+				(new Thread(() -> {
 					try {
+						StateMutex mtxAudio = new StateMutex();
+						
+						if(logger.isDebugEnabled())
+							logger.debug("Unmuting the audio...");
+						
+						context.playbackController().unmute(() -> {
+							if(logger.isDebugEnabled())
+								logger.debug("Setting volume to max...");
+							
+							context.playbackController().volume(1.0, () -> {
+								if(logger.isDebugEnabled())
+									logger.debug("Audio unmuted and set to max.");
+								
+								mtxAudio.unlock();
+							});
+						});
+						
+						if(logger.isDebugEnabled())
+							logger.debug("Waiting for the audio to be prepared...");
+						
+						mtxAudio.await();
+						
 						startRecord();
+						
+						if(logger.isDebugEnabled())
+							logger.debug("Playing the video...");
+						
 						// Recording has been started, also start the video
-						context.playbackController().play();
+						context.playbackController().play(() -> {
+							if(logger.isDebugEnabled())
+								logger.debug("Video played.");
+						});
 					} catch(Exception ex) {
 						exception.set(ex);
 						mtxDone.unlock();
 					}
-				}).start();
+				})).start();
 			});
 			mtxDone.await();
 			if(stopped.get()) return null; // Sending null will stop the pipeline

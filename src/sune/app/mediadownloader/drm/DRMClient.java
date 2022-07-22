@@ -61,7 +61,7 @@ public class DRMClient {
 				boolean handled = false;
 				JSRequest result = jsResults.get(requestName);
 				if(result != null) {
-					result.setResult(index, json.getDirect("data"));
+					result.resolve(index, json.getDirect("data"));
 					handled = true;
 				}
 				requestName = requestName.substring(0, requestName.length() - 1);
@@ -100,8 +100,8 @@ public class DRMClient {
 		loadNotifier.await(URL_BLANK);
 	}
 	
-	public void addJSRequest(JSRequest result) {
-		jsResults.put(result.requestName() + ':', result);
+	public void addJSRequest(CefFrame frame, JSRequest result) {
+		jsResults.compute(result.requestName() + ':', (k, v) -> result).send(frame);
 	}
 	
 	public CefClient cefClient() {
