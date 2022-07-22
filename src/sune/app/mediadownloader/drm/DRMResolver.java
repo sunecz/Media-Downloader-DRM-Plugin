@@ -4,6 +4,7 @@ import java.nio.charset.Charset;
 
 import org.cef.browser.CefFrame;
 
+import io.netty.handler.codec.http.FullHttpRequest;
 import sune.util.ssdf2.SSDCollection;
 
 public interface DRMResolver {
@@ -14,6 +15,9 @@ public interface DRMResolver {
 	
 	boolean shouldModifyResponse(String uri, String mimeType, Charset charset);
 	String modifyResponse(String uri, String mimeType, Charset charset, String content);
+	
+	default boolean shouldModifyRequest(FullHttpRequest request) { return false; }
+	default void modifyRequest(FullHttpRequest request) {}
 	
 	String url();
 }

@@ -45,8 +45,8 @@ public class DRMProxy {
 		this.resolver = resolver;
 	}
 	
-	private static final ResponseInfo getResponseInfo(HttpResponse response) {
-		String contentType = response.headers().get("Content-Type");
+	private static final HttpHeadersInfo httpHeadersInfo(HttpHeaders headers) {
+		String contentType = headers.get("Content-Type");
 		String mimeType = DEFAULT_MIME_TYPE;
 		String charsetName = DEFAULT_CHARSET_NAME;
 		if(contentType != null) {
@@ -56,7 +56,7 @@ public class DRMProxy {
 				charsetName = parts[1].stripLeading().replaceAll("^charset=", "");
 			}
 		}
-		return new ResponseInfo(mimeType, charsetName);
+		return new HttpHeadersInfo(mimeType, charsetName);
 	}
 	
 	private static final FullHttpResponse newSuccessResponse(ByteBuf buf) {
@@ -85,12 +85,12 @@ public class DRMProxy {
 		server.stop();
 	}
 	
-	private static final class ResponseInfo {
+	private static final class HttpHeadersInfo {
 		
 		private final String mimeType;
 		private final Charset charset;
 		
-		public ResponseInfo(String mimeType, String charsetName) {
+		public HttpHeadersInfo(String mimeType, String charsetName) {
 			this.mimeType = mimeType;
 			Charset charset = StandardCharsets.UTF_8;
 			try {
@@ -151,6 +151,17 @@ public class DRMProxy {
 		}
 		
 		@Override
+		public HttpResponse proxyToServerRequest(HttpObject httpObject) {
+			if(httpObject instanceof FullHttpRequest) {
+				FullHttpRequest request = (FullHttpRequest) httpObject;
+				if(resolver.shouldModifyRequest(request)) {
+					resolver.modifyRequest(request);
+				}
+			}
+			return null;
+		}
+		
+		@Override
 		public HttpResponse clientToProxyRequest(HttpObject httpObject) {
 			if(httpObject instanceof FullHttpRequest) {
 				FullHttpRequest request = (FullHttpRequest) httpObject;
@@ -163,7 +174,7 @@ public class DRMProxy {
 		public HttpObject proxyToClientResponse(HttpObject httpObject) {
 			if(httpObject instanceof FullHttpResponse) {
 				FullHttpResponse response = (FullHttpResponse) httpObject;
-				ResponseInfo info = getResponseInfo(response);
+				HttpHeadersInfo info = httpHeadersInfo(response.headers());
 				String mimeType = info.mimeType();
 				Charset charset = info.charset();
 				if(resolver.shouldModifyResponse(uri, mimeType, charset)) {
