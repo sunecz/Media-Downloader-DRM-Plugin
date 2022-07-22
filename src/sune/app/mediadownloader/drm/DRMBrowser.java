@@ -18,21 +18,22 @@ import org.slf4j.Logger;
 
 import sune.app.mediadownloader.drm.util.DRMUtils.BrowserAccessor;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
+import sune.app.mediadownloader.drm.util.DRMUtils.Point2D;
 import sune.app.mediadownloader.drm.util.StateMutex;
 
-public class DRMBrowser extends JFrame {
+public final class DRMBrowser extends JFrame {
 	
 	private static final long serialVersionUID = 1491787442060245403L;
 	
 	private static final Logger logger = DRMLog.get();
 	
 	private final DRMClient client;
-	private volatile boolean isClosed = false;
-	private CefBrowser browser;
+	private final CefBrowser browser;
 	private BrowserAccessor accessor;
 	private DRMBrowserContext context;
 	
-	private StateMutex mtxClose = new StateMutex();
+	private volatile boolean isClosed;
+	private final StateMutex mtxClose = new StateMutex();
 	
 	DRMBrowser(DRMContext drmContext, DRMClient drmClient, int width, int height) {
 		client = drmClient;
@@ -156,11 +157,6 @@ public class DRMBrowser extends JFrame {
 		toBack(); // Make the window always in the back
 	}
 	
-	// Shortcut method
-	public void addJSRequest(CefFrame frame, JSRequest result) {
-		client.addJSRequest(frame, result);
-	}
-	
 	private final void close() {
 		// This solves an issue with infrequent seemingly random crashes of libcef.dll
 		// For more info see: https://www.magpcss.org/ceforum/viewtopic.php?f=6&t=13044
@@ -181,6 +177,10 @@ public class DRMBrowser extends JFrame {
 			dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
 		});
 		mtxClose.await();
+	}
+	
+	public void addJSRequest(CefFrame frame, JSRequest result) {
+		client.addJSRequest(frame, result);
 	}
 	
 	public void start() {
@@ -214,11 +214,23 @@ public class DRMBrowser extends JFrame {
 		return accessor;
 	}
 	
-	public final DRMBrowserContext context() {
+	public DRMBrowserContext context() {
 		if(context == null) {
 			context = new Context();
 		}
 		return context;
+	}
+	
+	public int width() {
+		return super.getWidth();
+	}
+	
+	public int height() {
+		return super.getHeight();
+	}
+	
+	public Point2D center() {
+		return new Point2D(width() / 2, height() / 2);
 	}
 	
 	private final class Context implements DRMBrowserContext {

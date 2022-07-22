@@ -215,6 +215,12 @@
 				e.preventDefault();
 				e.stopPropagation();
 			}, true);
+
+			// Disable context menu for the whole document
+			document.addEventListener('contextmenu', (e) => {
+				e.preventDefault();
+				e.stopPropagation();
+			}, true);
 		},
 		// Utility methods
 		fnc(f) { return f.bind(this); }, // Bind 'this' to the current object

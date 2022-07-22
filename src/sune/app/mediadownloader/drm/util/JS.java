@@ -15,7 +15,7 @@ import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils.BBox;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
-import sune.app.mediadownloader.drm.util.DRMUtils.Point2D;
+import sune.app.mediadownloader.drm.util.DRMUtils.Promise;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;
 
@@ -60,7 +60,7 @@ public final class JS {
 		}
 		
 		public static final void activate(CefFrame frame, String selector) {
-			JS.execute(frame, String.format("MediaDownloader.DRM.Record.activate('%s');", escapeQS(selector)));
+			JS.execute(frame, DRMUtils.format("MediaDownloader.DRM.Record.activate('%s');", escapeQS(selector)));
 		}
 	}
 	
@@ -75,7 +75,7 @@ public final class JS {
 		}
 		
 		public static final void includeStyle(CefFrame frame, String content) {
-			JS.execute(frame, String.format("MediaDownloader.DRM.Helper.includeStyle('%s');", escapeQS(content)));
+			JS.execute(frame, DRMUtils.format("MediaDownloader.DRM.Helper.includeStyle('%s');", escapeQS(content)));
 		}
 		
 		public static final void hideVideoElementStyle(CefFrame frame) {
@@ -83,13 +83,18 @@ public final class JS {
 		}
 		
 		public static final void click(DRMBrowser browser, CefFrame frame, String selector) {
-			String code = String.format(
+			String code = DRMUtils.format(
 				"MediaDownloader.DRM.Helper.click('%s', (bbox) => ret(0, bbox));",
 				escapeQS(selector)
 			);
 			browser.addJSRequest(frame, new JSRequest(Request.requestId("click"), code, (result) -> {
-				Point2D center = (new BBox((SSDCollection) result)).center();
-				browser.accessor().click(center.x, center.y);
+				browser.accessor().click((new BBox((SSDCollection) result)).center());
+			}));
+		}
+		
+		public static final void enableDoUserInteraction(DRMBrowser browser, CefFrame frame) {
+			browser.addJSRequest(frame, JSRequest.ofNoop("doUserInteraction", (data) -> {
+				browser.accessor().click(browser.center());
 			}));
 		}
 	}
@@ -129,6 +134,49 @@ public final class JS {
 		
 		public static final void include(CefFrame frame) {
 			JS.include(frame, "/resources/drm/playback.js");
+		}
+		
+		private static final Promise.OfVoid muted(DRMBrowser browser, CefFrame frame, int videoId, boolean muted) {
+			Promise.OfVoid promise = new Promise.OfVoid();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.muted('%1$s', %2$b, ret);", videoId, muted);
+			browser.addJSRequest(frame, JS.Request.of("playback-muted", code, (data) -> promise.resolve()));
+			return promise;
+		}
+		
+		public static final Promise.OfVoid play(DRMBrowser browser, CefFrame frame, int videoId) {
+			Promise.OfVoid promise = new Promise.OfVoid();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.play('%1$s', ret);", videoId);
+			browser.addJSRequest(frame, JS.Request.of("playback-play", code, (data) -> promise.resolve()));
+			return promise;
+		}
+		
+		public static final Promise.OfVoid pause(DRMBrowser browser, CefFrame frame, int videoId) {
+			Promise.OfVoid promise = new Promise.OfVoid();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.pause('%1$s', ret);", videoId);
+			browser.addJSRequest(frame, JS.Request.of("playback-pause", code, (data) -> promise.resolve()));
+			return promise;
+		}
+		
+		public static final Promise.OfVoid time(DRMBrowser browser, CefFrame frame, int videoId, double time, boolean keepPaused) {
+			Promise.OfVoid promise = new Promise.OfVoid();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.time('%1$s', %2$.6f, %3$b, ret);", videoId, time, keepPaused);
+			browser.addJSRequest(frame, JS.Request.of("playback-time", code, (data) -> promise.resolve()));
+			return promise;
+		}
+		
+		public static final Promise.OfVoid mute(DRMBrowser browser, CefFrame frame, int videoId) {
+			return muted(browser, frame, videoId, true);
+		}
+		
+		public static final Promise.OfVoid unmute(DRMBrowser browser, CefFrame frame, int videoId) {
+			return muted(browser, frame, videoId, false);
+		}
+		
+		public static final Promise.OfVoid volume(DRMBrowser browser, CefFrame frame, int videoId, double volume) {
+			Promise.OfVoid promise = new Promise.OfVoid();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.volume('%1$s', %2$.6f, ret);", videoId, volume);
+			browser.addJSRequest(frame, JS.Request.of("playback-volume", code, (data) -> promise.resolve()));
+			return promise;
 		}
 	}
 }

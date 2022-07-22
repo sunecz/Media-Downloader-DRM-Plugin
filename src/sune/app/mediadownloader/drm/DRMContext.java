@@ -3,7 +3,7 @@ package sune.app.mediadownloader.drm;
 import java.util.UUID;
 
 import sune.app.mediadown.event.tracker.TrackerManager;
-import sune.app.mediadownloader.drm.util.PlaybackController;
+import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
@@ -25,7 +25,7 @@ public interface DRMContext {
 	DRMEventRegistry eventRegistry();
 	TrackerManager trackerManager();
 	DRMBrowserContext browserContext();
-	PlaybackController playbackController();
+	Playback playback();
 	ProcessManager processManager();
 	
 	UUID uuid();

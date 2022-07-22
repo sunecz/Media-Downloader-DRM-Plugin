@@ -35,7 +35,16 @@
 		includeStyle: function(content) {
 			const style = document.createElement('style');
 			style.textContent = content;
-			document.head.appendChild(style);
+
+			if(document.head !== null) {
+				document.head.appendChild(style);
+			} else {
+				const on_load = ((e) => {
+					document.head.appendChild(style);
+					document.removeEventListener('DOMContentLoaded', on_load, true);
+				});
+				document.addEventListener('DOMContentLoaded', on_load, true);
+			}
 		},
 		hideVideoElementStyle: function() {
 			this.includeStyle('video::-webkit-media-controls{display:none!important;-webkit-appearance:none!important;}');

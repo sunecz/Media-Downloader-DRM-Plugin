@@ -58,7 +58,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 				manager.setTracker(tracker);
 				manager.setUpdateListener(() -> context.eventRegistry().call(AnalyzeEvent.UPDATE, new Pair<>(context, manager)));
 				context.playbackEventsHandler(new AnalyzePhaseHandler());
-				context.playbackController().play();
+				context.playback().play();
 				mtxDone.await();
 				if(stopped.get()) return null; // Sending null will stop the pipeline
 				frameRate = metrics.playbackFPS();
@@ -88,7 +88,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	@Override
 	public void pause() throws Exception {
 		if(!running.get()) return; // Do not continue
-		context.playbackController().pause();
+		context.playback().pause();
 		context.processManager().pause();
 		running.set(false);
 		paused .set(true);
@@ -98,7 +98,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	@Override
 	public void resume() throws Exception {
 		if(running.get()) return; // Do not continue
-		context.playbackController().play();
+		context.playback().play();
 		context.processManager().resume();
 		paused .set(false);
 		running.set(true);
@@ -143,7 +143,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 				if(logger.isDebugEnabled())
 					logger.debug("Analyze measuring");
 				if(data.time >= analyzeDuration) {
-					context.playbackController().pause(() -> {
+					context.playback().pause().then(() -> {
 						mtxDone.unlock();
 					});
 				}
@@ -153,9 +153,9 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 						logger.debug("Analyze buffered");
 					analyzeBuffered = true;
 					metrics.reset();
-					context.playbackController().pause(() -> {
-						context.playbackController().time(0.0, true, () -> {
-							context.playbackController().play();
+					context.playback().pause().then(() -> {
+						context.playback().time(0.0, true).then(() -> {
+							context.playback().play();
 						});
 					});
 				}

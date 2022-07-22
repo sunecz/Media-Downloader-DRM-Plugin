@@ -2,16 +2,19 @@ package sune.app.mediadownloader.drm.util;
 
 import java.awt.Component;
 import java.awt.event.MouseEvent;
-import java.lang.reflect.InvocationTargetException;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 
+import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Reflection;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;
@@ -58,17 +61,20 @@ public final class DRMUtils {
 	
 	public static final class Point2D {
 		
-		public final int x, y;
+		private final int x, y;
 		
 		public Point2D(int x, int y) {
 			this.x = x;
 			this.y = y;
 		}
+		
+		public int x() { return x; }
+		public int y() { return y; }
 	}
 	
 	public static final class BBox {
 		
-		public final int x, y, width, height;
+		private final int x, y, width, height;
 		
 		public BBox(int x, int y, int width, int height) {
 			this.x = x;
@@ -87,6 +93,11 @@ public final class DRMUtils {
 		public Point2D center() {
 			return new Point2D(x + width / 2, y + height / 2);
 		}
+		
+		public int x()      { return x;      }
+		public int y()      { return y;      }
+		public int width()  { return width;  }
+		public int height() { return height; }
 	}
 	
 	public static final class BrowserAccessor {
@@ -103,12 +114,13 @@ public final class DRMUtils {
 			clazz = _clazz;
 		}
 		
-		private static Method method_sendMouseEvent;
-		private static Method getMethod_sendMouseEvent() throws IllegalStateException {
-			if(method_sendMouseEvent == null) {
+		private static MethodHandle mh_sendMouseEvent;
+		private static MethodHandle getMethod_sendMouseEvent() throws IllegalStateException {
+			if(mh_sendMouseEvent == null) {
 				try {
-					method_sendMouseEvent = clazz.getDeclaredMethod("sendMouseEvent", MouseEvent.class);
+					Method method_sendMouseEvent = clazz.getDeclaredMethod("sendMouseEvent", MouseEvent.class);
 					Reflection.setAccessible(method_sendMouseEvent, true);
+					mh_sendMouseEvent = MethodHandles.lookup().unreflect(method_sendMouseEvent);
 				} catch(NoSuchMethodException
 							| NoSuchFieldException
 							| IllegalArgumentException
@@ -117,22 +129,19 @@ public final class DRMUtils {
 					throw new IllegalStateException("Unable to send mouse events", ex);
 				}
 			}
-			return method_sendMouseEvent;
+			return mh_sendMouseEvent;
 		}
 		
 		private final CefBrowser browser;
 		
 		public BrowserAccessor(CefBrowser browser) {
-			this.browser = browser;
+			this.browser = Objects.requireNonNull(browser);
 		}
 		
 		public final void sendMouseEvent(MouseEvent e) {
 			try {
 				getMethod_sendMouseEvent().invoke(browser, e);
-			} catch(IllegalAccessException
-						| IllegalArgumentException
-						| InvocationTargetException
-						| IllegalStateException ex) {
+			} catch(Throwable ex) {
 				throw new IllegalStateException("Unable to send mouse event", ex);
 			}
 		}
@@ -143,6 +152,10 @@ public final class DRMUtils {
 			sendMouseEvent(new MouseEvent(component, MouseEvent.MOUSE_MOVED, 0, 0, x, y, 0, false));
 			sendMouseEvent(new MouseEvent(component, MouseEvent.MOUSE_PRESSED, 0, MouseEvent.BUTTON1_MASK, x, y, 1, false));
 			sendMouseEvent(new MouseEvent(component, MouseEvent.MOUSE_RELEASED, 0, MouseEvent.BUTTON1_MASK, x, y, 1, false));
+		}
+		
+		public final void click(Point2D point) {
+			click(point.x(), point.y());
 		}
 	}
 	
@@ -216,6 +229,104 @@ public final class DRMUtils {
 		
 		public SSDNode[] results() {
 			return results;
+		}
+	}
+	
+	private static abstract class PromiseBase<T> implements Promise<T> {
+		
+		private static final byte STATE_RESOLVED = 1;
+		private static final byte STATE_REJECTED = 2;
+		
+		private final    CompletableFuture<Pair<Byte, T>> first;
+		private volatile CompletableFuture<Pair<Byte, T>> next;
+		
+		public PromiseBase() {
+			first = new CompletableFuture<>();
+			next  = first;
+		}
+		
+		@Override
+		public void resolve(T arg) {
+			first.complete(new Pair<>(STATE_RESOLVED, arg));
+		}
+		
+		@Override
+		public void reject(T arg) {
+			first.complete(new Pair<>(STATE_REJECTED, arg));
+		}
+		
+		@Override
+		public PromiseBase<T> then(Consumer<T> resolved, Consumer<T> rejected) {
+			next = next.handleAsync((p, t) -> {
+				switch(p.a) {
+					case STATE_RESOLVED:
+						if(resolved != null)
+							resolved.accept(p.b);
+						break;
+					case STATE_REJECTED:
+						if(rejected != null)
+							rejected.accept(p.b);
+						break;
+				}
+				
+				return p;
+			});
+			
+			return this;
+		}
+		
+		@Override
+		public PromiseBase<T> then(Consumer<T> resolved) {
+			return then(resolved, null);
+		}
+	}
+	
+	public static interface Promise<T> {
+		
+		void resolve(T arg);
+		void reject(T arg);
+		Promise<T> then(Consumer<T> resolved, Consumer<T> rejected);
+		Promise<T> then(Consumer<T> resolved);
+		
+		public static final class OfRef<T> extends PromiseBase<T> {
+			
+			@Override
+			public OfRef<T> then(Consumer<T> resolved, Consumer<T> rejected) {
+				return (OfRef<T>) super.then(resolved, rejected);
+			}
+			
+			@Override
+			public OfRef<T> then(Consumer<T> resolved) {
+				return (OfRef<T>) super.then(resolved);
+			}
+		}
+		
+		public static final class OfVoid extends PromiseBase<Void> {
+			
+			private static final Consumer<Void> consumer(Runnable runnable) {
+				return ((v) -> runnable.run());
+			}
+			
+			public void resolve() { resolve(null); }
+			public void reject()  { reject (null); }
+			
+			@Override
+			public OfVoid then(Consumer<Void> resolved, Consumer<Void> rejected) {
+				return (OfVoid) super.then(resolved, rejected);
+			}
+			
+			@Override
+			public OfVoid then(Consumer<Void> resolved) {
+				return (OfVoid) super.then(resolved);
+			}
+			
+			public OfVoid then(Runnable resolved, Runnable rejected) {
+				return (OfVoid) super.then(consumer(resolved), consumer(rejected));
+			}
+			
+			public OfVoid then(Runnable resolved) {
+				return (OfVoid) super.then(consumer(resolved));
+			}
 		}
 	}
 }

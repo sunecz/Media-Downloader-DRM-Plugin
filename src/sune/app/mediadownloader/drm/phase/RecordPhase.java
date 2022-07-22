@@ -312,7 +312,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			if(logger.isDebugEnabled())
 				logger.debug("Setting time to 0.0 seconds...");
 			
-			context.playbackController().time(0.0, true, () -> {
+			context.playback().time(0.0, true).then(() -> {
 				if(logger.isDebugEnabled())
 					logger.debug("Time set to 0.0 seconds. Starting recording...");
 				
@@ -323,11 +323,11 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 						if(logger.isDebugEnabled())
 							logger.debug("Unmuting the audio...");
 						
-						context.playbackController().unmute(() -> {
+						context.playback().unmute().then(() -> {
 							if(logger.isDebugEnabled())
 								logger.debug("Setting volume to max...");
 							
-							context.playbackController().volume(1.0, () -> {
+							context.playback().volume(1.0).then(() -> {
 								if(logger.isDebugEnabled())
 									logger.debug("Audio unmuted and set to max.");
 								
@@ -346,7 +346,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 							logger.debug("Playing the video...");
 						
 						// Recording has been started, also start the video
-						context.playbackController().play(() -> {
+						context.playback().play().then(() -> {
 							if(logger.isDebugEnabled())
 								logger.debug("Video played.");
 						});
@@ -390,7 +390,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	@Override
 	public void pause() throws Exception {
 		if(!running.get()) return; // Do not continue
-		context.playbackController().pause();
+		context.playback().pause();
 		context.processManager().pause();
 		running.set(false);
 		paused .set(true);
@@ -400,7 +400,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	@Override
 	public void resume() throws Exception {
 		if(running.get()) return; // Do not continue
-		context.playbackController().play();
+		context.playback().play();
 		context.processManager().resume();
 		paused .set(false);
 		running.set(true);

@@ -20,7 +20,7 @@ import sune.app.mediadownloader.drm.util.StateMutex;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDF;
 
-public class DRMClient {
+public final class DRMClient {
 	
 	private static final String URL_BLANK = "about:blank";
 	
@@ -28,8 +28,8 @@ public class DRMClient {
 	private final DRMContext context;
 	private final DRMProxy proxy;
 	private final DRMResolver resolver;
+	private final LoadNotifier loadNotifier;
 	private DRMBrowser browser;
-	private LoadNotifier loadNotifier;
 	
 	private final Map<String, JSRequest> jsResults = new HashMap<>();
 	
@@ -41,6 +41,27 @@ public class DRMClient {
 		this.loadNotifier = new LoadNotifier();
 	}
 	
+	private final boolean handleQuery(CefBrowser cefBrowser, CefFrame frame, long query_id, String request,
+			boolean persistent, CefQueryCallback callback) {
+		String requestNameData = request.substring(0, request.indexOf(':') + 1), requestName = requestNameData;
+		int delim = requestNameData.indexOf('.'), index = 0;
+		if(delim > 0) {
+			requestName = requestNameData.substring(0, delim) + ':';
+			index = Integer.valueOf(requestNameData.substring(delim + 1, requestNameData.length() - 1));
+		}
+		String value = request.substring(requestNameData.length());
+		SSDCollection json = SSDF.readJSON(value);
+		boolean handled = false;
+		JSRequest result = jsResults.get(requestName);
+		if(result != null) {
+			result.resolve(index, json.getDirect("data"));
+			handled = true;
+		}
+		requestName = requestName.substring(0, requestName.length() - 1);
+		resolver.onRequest(browser, frame, requestName, json, request);
+		return handled;
+	}
+	
 	public DRMBrowser createBrowser(int width, int height) {
 		if(browser != null)
 			throw new IllegalStateException("Browser already created");
@@ -48,25 +69,9 @@ public class DRMClient {
 		msgRouter.addHandler(new CefMessageRouterHandlerAdapter() {
 			
 			@Override
-			public boolean onQuery(CefBrowser b, CefFrame frame, long query_id, String request,
+			public boolean onQuery(CefBrowser cefBrowser, CefFrame frame, long query_id, String request,
 					boolean persistent, CefQueryCallback callback) {
-				String requestNameData = request.substring(0, request.indexOf(':') + 1), requestName = requestNameData;
-				int delim = requestNameData.indexOf('.'), index = 0;
-				if(delim > 0) {
-					requestName = requestNameData.substring(0, delim) + ':';
-					index = Integer.valueOf(requestNameData.substring(delim + 1, requestNameData.length() - 1));
-				}
-				String value = request.substring(requestNameData.length());
-				SSDCollection json = SSDF.readJSON(value);
-				boolean handled = false;
-				JSRequest result = jsResults.get(requestName);
-				if(result != null) {
-					result.resolve(index, json.getDirect("data"));
-					handled = true;
-				}
-				requestName = requestName.substring(0, requestName.length() - 1);
-				resolver.onRequest(browser, frame, requestName, json, request);
-				return handled;
+				return handleQuery(cefBrowser, frame, query_id, request, persistent, callback);
 			}
 		}, true);
 		client.addMessageRouter(msgRouter);

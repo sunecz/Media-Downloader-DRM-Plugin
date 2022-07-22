@@ -8,57 +8,70 @@
 		_isPlaying: function(video) { return video.readyState > 2 && !video.paused && !video.ended && !video.seeking; },
 		// Standard methods
 		play: function(video_id) {
+			const video = this._videoPlayer(video_id);
 
+			const playing = ((e) => {
+				video.removeEventListener('play', playing, true);
+				ret(0, {});
+			});
+			video.addEventListener('play', playing, true);
+
+			// Play method can be called only when a user has done some interaction (click, etc.)
+			MediaDownloader.DRM.Helper.doUserInteraction(() => {
+				video.play();
+			});
 		},
 		pause: function(video_id) {
+			const video = this._videoPlayer(video_id);
 
+			const paused = ((e) => {
+				video.removeEventListener('pause', paused, true);
+				ret(0, {});
+			});
+			video.addEventListener('pause', paused, true);
+
+			// Play method can be called only when a user has done some interaction (click, etc.)
+			MediaDownloader.DRM.Helper.doUserInteraction(() => {
+				 video.pause();
+			});
 		},
 		time: function(video_id, time, keepPaused, ret) {
 			const video = this._videoPlayer(video_id);
 
-			console.log("PLAYBACK CONTROLLER", "video", video);
-
 			if(this._eq(video.currentTime, time)) {
-			    ret(0, {});
+				ret(0, {});
 			} else {
 				const was_playing = !keepPaused && this._isPlaying(video);
 				
-				console.log("PLAYBACK CONTROLLER", "was_playing", was_playing);
-
 				// Pause method can be called only when a user has done some interaction (click, etc.)
 				MediaDownloader.DRM.Helper.doUserInteraction(() => {
 					// First, pause the video so that the seeking can be done safely
 					video.pause();
 
-					console.log("PLAYBACK CONTROLLER", "pause");
+					const seeked = ((e) => {
+						// Check whether the desired time has been seeked
+						if(!this._eq(video.currentTime, time))
+							return;
 
-				    const seeked = ((e) => {
-				    	// Check whether the desired time has been seeked
-				        if(!this._eq(video.currentTime, time))
-				        	return;
+						// If so, clean up
+						video.removeEventListener('seeked', seeked, true);
 
-				        // If so, clean up
-			            video.removeEventListener('seeked', seeked, true);
+						// We must play the video again, but only if it was already playing
+						if(was_playing) {
+							// Play method can be called only when a user has done some interaction (click, etc.)
+							MediaDownloader.DRM.Helper.doUserInteraction(() => {
+								// Resolve after the video is playing again
+								video.play().then(() => ret(0, {}));
+							});
+						} else {
+							// Video was not playing before, nothing to do, just resolve
+							ret(0, {});
+						}
+					});
+					video.addEventListener('seeked', seeked, true);
 
-			            // We must play the video again, but only if it was already playing
-			            if(was_playing) {
-			            	// Play method can be called only when a user has done some interaction (click, etc.)
-			            	MediaDownloader.DRM.Helper.doUserInteraction(() => {
-
-			            		console.log("PLAYBACK CONTROLLER", "play");
-
-			            		// Resolve after the video is playing again
-			            		video.play().then(() => ret(0, {}));
-			            	});
-			            } else {
-			            	// Video was not playing before, nothing to do, just resolve
-			            	ret(0, {});
-			            }
-				    });
-				    video.addEventListener('seeked', seeked, true);
-
-				    // Seek to the desired time
-				    video.currentTime = time;
+					// Seek to the desired time
+					video.currentTime = time;
 				});
 			}
 		},

@@ -30,7 +30,8 @@ import sune.app.mediadownloader.drm.util.AudioDevices;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice;
 import sune.app.mediadownloader.drm.util.AudioRedirector;
 import sune.app.mediadownloader.drm.util.CEFLog;
-import sune.app.mediadownloader.drm.util.PlaybackController;
+import sune.app.mediadownloader.drm.util.JS;
+import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
@@ -62,7 +63,7 @@ public final class DRMInstance {
 	private volatile boolean playbackStarted;
 	private volatile boolean playbackEnded;
 	private final AtomicBoolean playbackReady = new AtomicBoolean();
-	private PlaybackController playbackController;
+	private Playback playback;
 	private ProcessManager processManager;
 	private AudioDevice audioDevice;
 	
@@ -141,8 +142,13 @@ public final class DRMInstance {
 				logger.debug("Audio redirected to the virtual audio device.");
 		}
 		
-		CefFrame frame = browserContext.browser().cefBrowser().getFrame(frameID);
-		playbackController = new PlaybackController(browserContext.browser(), frame, videoID);
+		DRMBrowser browser = browserContext.browser();
+		CefFrame frame = browser.cefBrowser().getFrame(frameID);
+		
+		playback = new Playback(browser, frame, videoID);
+		JS.Playback.include(frame);
+		JS.Helper.enableDoUserInteraction(browser, frame);
+		
 		processManager = new ProcessManager();
 		pipeline.setInput(new InitializationPhaseInput(context, duration));
 		mtxInit.unlock();
@@ -316,6 +322,7 @@ public final class DRMInstance {
 	private final void syncStop(PlaybackData data) {
 		if(playbackEventsHandler != null)
 			playbackEventsHandler.ended(data);
+		
 		playbackEnded = true;
 	}
 	
@@ -324,7 +331,8 @@ public final class DRMInstance {
 		
 		if(logger.isDebugEnabled())
 			logger.debug("Video playback paused");
-		playbackController.pause();
+		
+		playback.pause();
 	}
 	
 	private final void playbackResume(PlaybackData data) {
@@ -332,7 +340,8 @@ public final class DRMInstance {
 		
 		if(logger.isDebugEnabled())
 			logger.debug("Video playback resumed");
-		playbackController.play();
+		
+		playback.play();
 	}
 	
 	private final void playbackReady(PlaybackData data) {
@@ -353,11 +362,10 @@ public final class DRMInstance {
 				
 				// Time must be set to 0.0 seconds manually
 				if(time.getValue() != 0.0) {
-					
 					if(logger.isDebugEnabled())
 						logger.debug("Time is not 0.0 seconds. Waiting for fields initialization...");
 					
-					// Ensure that the Playback controller is set
+					// Ensure that the playback field is set
 					mtxInit.await();
 					
 					if(logger.isDebugEnabled())
@@ -365,7 +373,7 @@ public final class DRMInstance {
 					
 					// Set the time to 0.0 seconds
 					StateMutex mtx = new StateMutex();
-					playbackController.time(0.0, true, () -> {
+					playback.time(0.0, true).then(() -> {
 						time.setValue(0.0);
 						mtx.unlock();
 					});
@@ -501,8 +509,8 @@ public final class DRMInstance {
 		}
 		
 		@Override
-		public PlaybackController playbackController() {
-			return playbackController;
+		public Playback playback() {
+			return playback;
 		}
 		
 		@Override
