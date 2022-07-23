@@ -44,23 +44,9 @@ public final class DRMBrowser extends JFrame {
 		component.setFocusable(false);
 		component.addComponentListener(new ComponentAdapter() {
 			
-			@Override
-			public void componentMoved(ComponentEvent e) {
-				// Disable focus
-				component.setFocusable(false);
-			}
-			
-			@Override
-			public void componentResized(ComponentEvent e) {
-				// Disable focus
-				component.setFocusable(false);
-			}
-			
-			@Override
-			public void componentShown(ComponentEvent e) {
-				// Disable focus
-				component.setFocusable(false);
-			}
+			@Override public void componentMoved  (ComponentEvent e) { component.setFocusable(false); }
+			@Override public void componentResized(ComponentEvent e) { component.setFocusable(false); }
+			@Override public void componentShown  (ComponentEvent e) { component.setFocusable(false); }
 		});
 		JPanel contentPanel = new JPanel(new BorderLayout());
 		contentPanel.add(component, BorderLayout.CENTER);
@@ -71,26 +57,17 @@ public final class DRMBrowser extends JFrame {
 			public void componentMoved(ComponentEvent e) {
 				// Make the window non-movable
 				setLocation(0, 0);
-				// Disable focus
-				setFocusable(false);
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
 			public void componentResized(ComponentEvent e) {
-				// Disable focus
-				setFocusable(false);
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
 			public void componentShown(ComponentEvent e) {
-				// Disable focus
-				setFocusable(false);
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 		});
 		addWindowListener(new WindowAdapter() {
@@ -99,28 +76,22 @@ public final class DRMBrowser extends JFrame {
 			public void windowIconified(WindowEvent e) {
 				// Make the window non-minimizable
 				setExtendedState(JFrame.NORMAL);
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
 			public void windowActivated(WindowEvent e) {
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
 			public void windowOpened(WindowEvent e) {
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
 			public void windowGainedFocus(WindowEvent e) {
-				// Disable focus
-				setFocusable(false);
-				// Make the window always in the back
-				toBack();
+				unfocusAndSendToBack();
 			}
 			
 			@Override
@@ -155,6 +126,11 @@ public final class DRMBrowser extends JFrame {
 		pack(); // Make sure the broswer fits into the window
 		setLocation(0, 0);
 		toBack(); // Make the window always in the back
+	}
+	
+	private final void unfocusAndSendToBack() {
+		setFocusable(false);
+		toBack();
 	}
 	
 	private final void close() {
