@@ -7,7 +7,7 @@ import javax.swing.SwingUtilities;
 
 import org.cef.browser.CefFrame;
 
-import sune.app.mediadown.media.MediaQuality;
+import sune.app.mediadown.media.Media;
 import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMResolver;
@@ -20,18 +20,18 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 	protected final DRMContext context;
 	protected final String url;
 	protected final Path output;
-	protected final MediaQuality quality;
+	protected final Media media;
 	
 	private int videoWidth;
 	private int videoHeight;
 	private double duration;
 	private int vid;
 	
-	public SimpleDRMResolver(DRMContext context, String url, Path output, MediaQuality quality) {
+	public SimpleDRMResolver(DRMContext context, String url, Path output, Media media) {
 		this.context = context;
 		this.url = url;
 		this.output = output;
-		this.quality = quality;
+		this.media = media;
 	}
 	
 	/**

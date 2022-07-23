@@ -319,7 +319,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			// Configure the DRM
 			DRMConfiguration configuration = new DRMConfiguration.Builder()
 					.output(destination)
-					.mediaQuality(media.quality())
+					.media(media)
 					.detectFPS(false) // Do not automatically detect FPS for now
 					.build();
 			// Prepare the DRM instance

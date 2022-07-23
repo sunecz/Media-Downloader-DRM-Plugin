@@ -19,7 +19,7 @@ import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.PipelineEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.event.tracker.WaitTracker;
-import sune.app.mediadown.media.MediaQuality;
+import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
@@ -171,8 +171,8 @@ public final class DRMInstance {
 		
 		int width = DEFAULT_BROWSER_WIDTH, height = DEFAULT_BROWSER_HEIGHT;
 		Path output = configuration.output();
-		MediaQuality quality = configuration.mediaQuality();
-		DRMResolver resolver = engine.createResolver(context, url, output, quality);
+		Media media = configuration.media();
+		DRMResolver resolver = engine.createResolver(context, url, output, media);
 		DRMBrowser browser = DRM.createClient(context, resolver).createBrowser(width, height);
 		
 		browser.start();

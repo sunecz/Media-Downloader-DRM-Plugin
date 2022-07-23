@@ -1,19 +1,20 @@
 package sune.app.mediadownloader.drm;
 
 import java.nio.file.Path;
+import java.util.Objects;
 
-import sune.app.mediadown.media.MediaQuality;
+import sune.app.mediadown.media.Media;
 
 public final class DRMConfiguration {
 	
 	private final Path output;
-	private final MediaQuality mediaQuality;
+	private final Media media;
 	private final boolean detectFPS;
 	private final double analyzeDuration;
 	
-	private DRMConfiguration(Path output, MediaQuality mediaQuality, boolean detectFPS, double analyzeDuration) {
+	private DRMConfiguration(Path output, Media media, boolean detectFPS, double analyzeDuration) {
 		this.output = output;
-		this.mediaQuality = mediaQuality;
+		this.media = media;
 		this.detectFPS = detectFPS;
 		this.analyzeDuration = analyzeDuration;
 	}
@@ -22,8 +23,8 @@ public final class DRMConfiguration {
 		return output;
 	}
 	
-	public MediaQuality mediaQuality() {
-		return mediaQuality;
+	public Media media() {
+		return media;
 	}
 	
 	public boolean detectFPS() {
@@ -39,34 +40,31 @@ public final class DRMConfiguration {
 		private static final double DEFAULT_ANALYZE_DURATION = 10.0;
 		
 		private Path output;
-		private MediaQuality mediaQuality;
+		private Media media;
 		private boolean detectFPS;
 		private double analyzeDuration;
 		
 		public Builder() {
 			output = null;
-			mediaQuality = MediaQuality.UNKNOWN;
-			detectFPS = true;
+			media = null;
+			detectFPS = false;
 			analyzeDuration = DEFAULT_ANALYZE_DURATION;
 		}
 		
 		public DRMConfiguration build() {
-			if(output == null)
-				throw new IllegalArgumentException("Output cannot be null");
-			if(mediaQuality == null)
-				throw new IllegalArgumentException("Media quality cannot be null");
 			if(detectFPS && analyzeDuration <= 0.0)
-				throw new IllegalArgumentException("Analyze duration must be positive.");
-			return new DRMConfiguration(output, mediaQuality, detectFPS, analyzeDuration);
+				throw new IllegalArgumentException("Analyze duration must be > 0.0.");
+			return new DRMConfiguration(Objects.requireNonNull(output), Objects.requireNonNull(media),
+					detectFPS, analyzeDuration);
 		}
 		
 		public Builder output(Path output) {
-			this.output = output;
+			this.output = Objects.requireNonNull(output);
 			return this;
 		}
 		
-		public Builder mediaQuality(MediaQuality mediaQuality) {
-			this.mediaQuality = mediaQuality;
+		public Builder media(Media media) {
+			this.media = Objects.requireNonNull(media);
 			return this;
 		}
 		
@@ -84,8 +82,8 @@ public final class DRMConfiguration {
 			return output;
 		}
 		
-		public MediaQuality mediaQuality() {
-			return mediaQuality;
+		public Media media() {
+			return media;
 		}
 		
 		public boolean detectFPS() {
