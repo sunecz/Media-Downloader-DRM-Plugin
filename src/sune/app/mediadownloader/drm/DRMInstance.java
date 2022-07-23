@@ -63,9 +63,9 @@ public final class DRMInstance {
 	private volatile boolean playbackStarted;
 	private volatile boolean playbackEnded;
 	private final AtomicBoolean playbackReady = new AtomicBoolean();
-	private Playback playback;
-	private ProcessManager processManager;
-	private AudioDevice audioDevice;
+	private volatile Playback playback;
+	private volatile ProcessManager processManager;
+	private volatile AudioDevice audioDevice;
 	
 	private final DRMEventRegistry eventRegistry = new DRMEventRegistry();
 	private final TrackerManager manager = new TrackerManager();
