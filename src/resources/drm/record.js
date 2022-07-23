@@ -77,10 +77,12 @@
 			}, true);
 			videoPlayer.addEventListener('loadedmetadata', (e) => {
 				const holder = this.ensureButtonHolder();
-				console.log("hasChildNodes", holder.hasChildNodes());
+
+				// Add the button only if it has not been already added
 				if(!holder.hasChildNodes()) {
-					holder.appendChild(button); // Add the button
+					holder.appendChild(button);
 				}
+
 				this.provide('metadata', {
 					width:    videoPlayer.videoWidth,
 					height:   videoPlayer.videoHeight,
