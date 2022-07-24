@@ -119,9 +119,14 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_VIDEO);
 		trackerManager.setTracker(tracker);
 		trackerManager.update();
+		
+		String args = "-c:v libx264rgb -preset ultrafast -tune film -qp 0 -pix_fmt rgb24 -g 1";
+		double frameRate = recordInfo.frameRate();
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
-		List<String> commands = FFMpegTrimCommandGenerator.forVideo(path, outputPath, recordInfo.frameRate()).commands(cutsInclude);
-		for(String command : commands) {
+		
+		for(String command : FFMpegTrimCommandGenerator
+				.forVideo(path, outputPath, frameRate, args)
+				.commands(cutsInclude)) {
 			try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 				if(logger.isDebugEnabled())
 					logger.debug("ffmpeg{}", command);

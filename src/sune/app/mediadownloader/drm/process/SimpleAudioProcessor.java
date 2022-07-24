@@ -119,9 +119,14 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_AUDIO);
 		trackerManager.setTracker(tracker);
 		trackerManager.update();
+		
+		String args = "-c:a pcm_s16le";
+		int sampleRate = recordInfo.sampleRate();
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
-		List<String> commands = FFMpegTrimCommandGenerator.forAudio(path, outputPath, recordInfo.sampleRate()).commands(cutsInclude);
-		for(String command : commands) {
+		
+		for(String command : FFMpegTrimCommandGenerator
+				.forAudio(path, outputPath, sampleRate, args)
+				.commands(cutsInclude)) {
 			try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 				if(logger.isDebugEnabled())
 					logger.debug("ffmpeg{}", command);

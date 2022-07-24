@@ -118,7 +118,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		}
 	}
 	
-	private final String getRecordFFMpegCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle) {
+	private final String recordCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle) {
 		StringBuilder builder = new StringBuilder();
 		builder.append(" -y"); // Rewrite the output file, if it exists
 		
@@ -132,7 +132,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		builder.append(" -c:v libx264rgb -r %{frame_rate}s"); // Output video settings
 		builder.append(" -c:a pcm_s16le -ac 2 -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-		builder.append(" -preset ultrafast -tune zerolatency -crf 18 -pix_fmt rgb24"); // Performance settings
+		builder.append(" -preset ultrafast -tune zerolatency -qp 0 -pix_fmt rgb24 -g 1"); // Performance setting
 		builder.append(" -vf setpts=N/FR/TB"); // Ensure correct timestamps on pause/resume
 		
 		StringBuilder af = new StringBuilder();
@@ -175,7 +175,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		process = context.processManager().ffmpeg(this::recordUpdated);
 		String windowTitle = context.browserContext().title();
 		String audioDeviceName = context.audioDeviceName();
-		String command = getRecordFFMpegCommand(audioDeviceName, frameRate, sampleRate, windowTitle);
+		String command = recordCommand(audioDeviceName, frameRate, sampleRate, windowTitle);
 		if(logger.isDebugEnabled())
 			logger.debug("Record command: ffmpeg{}", command);
 		process.execute(command);

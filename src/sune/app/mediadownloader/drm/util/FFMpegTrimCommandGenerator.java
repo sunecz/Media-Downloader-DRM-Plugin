@@ -57,14 +57,14 @@ public final class FFMpegTrimCommandGenerator {
 		return ((cut) -> new Cut.OfLong((long) Math.round(cut.start() * mult), (long) Math.round(cut.end() * mult)));
 	}
 	
-	public static final FFMpegTrimCommandGenerator forVideo(Path input, Path output, double frameRate) {
+	public static final FFMpegTrimCommandGenerator forVideo(Path input, Path output, double frameRate, String additionalArgs) {
 		return new FFMpegTrimCommandGenerator(input, output, fMultiply(frameRate), "0:v", "trim", "start_frame", "end_frame",
-		                                      "setpts=N/FR/TB", "v=1:a=0", " -an", "v");
+		                                      "setpts=N/FR/TB", "v=1:a=0", " -an " + additionalArgs, "v");
 	}
 	
-	public static final FFMpegTrimCommandGenerator forAudio(Path input, Path output, int sampleRate) {
+	public static final FFMpegTrimCommandGenerator forAudio(Path input, Path output, int sampleRate, String additionalArgs) {
 		return new FFMpegTrimCommandGenerator(input, output, fMultiply(sampleRate), "0:a", "atrim", "start_sample", "end_sample",
-		                                      "asetpts=N/SR/TB", "v=0:a=1", " -vn", "a");
+		                                      "asetpts=N/SR/TB", "v=0:a=1", " -vn " + additionalArgs, "a");
 	}
 	
 	private final double lengthPerTrim() {

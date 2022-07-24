@@ -104,7 +104,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			builder.append(" -i \"%{input_video}s\"");
 			builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
 			builder.append(" -i \"%{input_audio}s\"");
-			builder.append(" -c:v copy");
+			builder.append(" -c:v copy -c:a aac");
 			builder.append(" \"%{output}s\"");
 			String command = Utils.format(builder.toString(),
 				"input_video", videoOutputPath.toAbsolutePath().toString(),
