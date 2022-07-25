@@ -127,7 +127,7 @@ public final class DRMInstance {
 		return audioDevice;
 	}
 	
-	private final void doProcess(Path output, double duration, int videoID, long frameID) throws Exception {
+	private final void prepareAudioDevice() throws Exception {
 		audioDevice = tryGetAudioDevice();
 		if(logger.isDebugEnabled())
 			logger.debug("Audio device name: {} (isVirtual={})",
@@ -141,6 +141,10 @@ public final class DRMInstance {
 			if(logger.isDebugEnabled())
 				logger.debug("Audio redirected to the virtual audio device.");
 		}
+	}
+	
+	private final void doProcess(Path output, double duration, int videoID, long frameID) throws Exception {
+		prepareAudioDevice();
 		
 		DRMBrowser browser = browserContext.browser();
 		CefFrame frame = browser.cefBrowser().getFrame(frameID);

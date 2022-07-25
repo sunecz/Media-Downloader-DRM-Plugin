@@ -16,6 +16,7 @@ public final class DRMConstants {
 	public static final double DEFAULT_SILENCE_THRESHOLD = -90.0;
 	public static final double DEFAULT_FRAMERATE         = 24.0;
 	public static final int    AUDIO_LISTEN_SERVER_PORT  = 9877;
+	public static final int    AUDIO_BUFFER_SIZE_MS      = 100;
 	// Default VB-Audio Virtual Cable settings
 	public static final int    AUDIO_MAX_LATENCY_SAMPLES = 7168;
 	public static final int    AUDIO_OUTPUT_SAMPLE_RATE  = 44100;

@@ -124,10 +124,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		builder.append(" -f dshow"); // Record audio
 		builder.append(" -thread_queue_size 1024 -probesize 8M -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
+		builder.append(" -copyts -start_at_zero"); // Help the synchronization
+		builder.append(" -audio_buffer_size %{audio_buffer_size}d"); // Set audio buffer size for latency
 		builder.append(" -i audio=\"%{audio_device_name}s\""); // Record specific audio input
 		
 		builder.append(" -f gdigrab"); // Record video
 		builder.append(" -thread_queue_size 1024 -probesize 64M -fflags +igndts -framerate %{frame_rate}s -draw_mouse 0"); // Input video settings
+		builder.append(" -copyts -start_at_zero"); // Help the synchronization
 		builder.append(" -i title=\"%{window_title}s\""); // Record specific window
 		
 		builder.append(" -c:v libx264rgb -r %{frame_rate}s"); // Output video settings
@@ -154,6 +157,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			"nsamples", sampleRate / DRMConstants.MS_IN_SEC,
 			"audio_server_port", DRMConstants.AUDIO_LISTEN_SERVER_PORT,
 			"audio_offset", DRMUtils.toString(audioOffset),
+			"audio_buffer_size", DRMConstants.AUDIO_BUFFER_SIZE_MS,
 			"window_title", windowTitle,
 			"frame_rate", DRMUtils.toString(frameRate),
 			"output", recordPath.toAbsolutePath().toString(),

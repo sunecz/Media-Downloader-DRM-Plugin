@@ -90,13 +90,13 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		double durationAudio = postProcessAudio(processManager, filesManager, outputRecord, audioOutputPath);
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		
-		double duration = Math.max(durationVideo, durationAudio);
-		
+		double duration = Math.min(durationVideo, durationAudio);
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.MERGE);
 		trackerManager.setTracker(tracker);
 		trackerManager.update();
+		
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 			StringBuilder builder = new StringBuilder();
@@ -105,6 +105,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
 			builder.append(" -i \"%{input_audio}s\"");
 			builder.append(" -c:v copy -c:a aac");
+			builder.append(" -shortest"); // Fix output file duration
 			builder.append(" \"%{output}s\"");
 			String command = Utils.format(builder.toString(),
 				"input_video", videoOutputPath.toAbsolutePath().toString(),
