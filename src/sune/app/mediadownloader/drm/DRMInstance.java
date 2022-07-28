@@ -51,7 +51,7 @@ public final class DRMInstance {
 	
 	private final Pipeline pipeline = Pipeline.create();
 	
-	private DRMContext context;
+	private final DRMContext context;
 	private DRMBrowserContext browserContext;
 	
 	private final AtomicReference<Exception> exception = new AtomicReference<>(null);
@@ -59,7 +59,7 @@ public final class DRMInstance {
 	private final StateMutex mtxReady = new StateMutex();
 	private final StateMutex mtxInit = new StateMutex();
 	
-	private PlaybackEventsHandler playbackEventsHandler;
+	private volatile PlaybackEventsHandler playbackEventsHandler;
 	private volatile boolean playbackStarted;
 	private volatile boolean playbackEnded;
 	private final AtomicBoolean playbackReady = new AtomicBoolean();
@@ -149,6 +149,9 @@ public final class DRMInstance {
 		DRMBrowser browser = browserContext.browser();
 		CefFrame frame = browser.cefBrowser().getFrame(frameID);
 		
+		playbackStarted = false;
+		playbackEnded = false;
+		playbackReady.set(false);
 		playback = new Playback(browser, frame, videoID);
 		JS.Playback.include(frame);
 		JS.Helper.enableDoUserInteraction(browser, frame);
