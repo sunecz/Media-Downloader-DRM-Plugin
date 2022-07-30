@@ -8,7 +8,7 @@ module sune.app.mediadownloader.drm {
 	// External modules (Proxy)
 	requires littleproxy;
 	requires littleproxy.mitm;
-	requires netty.all;
+	requires transitive netty.all;
 	// External modules (Logging)
 	requires transitive slf4j.api;
 	requires log4j;
