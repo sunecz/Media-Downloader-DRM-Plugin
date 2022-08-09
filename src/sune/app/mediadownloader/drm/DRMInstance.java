@@ -22,6 +22,7 @@ import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
+import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
 import sune.app.mediadownloader.drm.event.DRMInstanceEvent;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
@@ -364,7 +365,7 @@ public final class DRMInstance {
 			if(!playbackReady.compareAndSet(false, true))
 				return;
 			
-			(new Thread(() -> {
+			(Threads.newThreadUnmanaged(() -> {
 				Property<Double> time = new Property<>(data.time);
 				
 				// Time must be set to 0.0 seconds manually

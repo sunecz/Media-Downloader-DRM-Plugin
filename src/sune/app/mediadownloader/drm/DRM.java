@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Reflection2;
+import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.util.CEFLog;
 import sune.app.mediadownloader.drm.util.StateMutex;
 
@@ -57,7 +58,7 @@ public final class DRM {
 			if(!CefApp.startup(cefAppArgs))
 				throw new IllegalStateException("CEF startup failed");
 			// Add automatic dispose on shutdown
-			Runtime.getRuntime().addShutdownHook(new Thread(DRM::dispose));
+			Runtime.getRuntime().addShutdownHook(Threads.newThreadUnmanaged(DRM::dispose));
 			cefStarted = true;
 		}
 	}

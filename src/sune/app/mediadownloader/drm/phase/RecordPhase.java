@@ -17,6 +17,7 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
@@ -184,7 +185,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Record command: ffmpeg{}", command);
 		process.execute(command);
 		// Catch any FFMpeg startup errors (such as incorrect arguments, etc.)
-		(threadInit = new Thread(() -> {
+		(threadInit = Threads.newThreadUnmanaged(() -> {
 			try {
 				int code = process.waitFor();
 				// Process exited early with an error
@@ -320,7 +321,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				if(logger.isDebugEnabled())
 					logger.debug("Time set to 0.0 seconds. Starting recording...");
 				
-				(new Thread(() -> {
+				(Threads.newThreadUnmanaged(() -> {
 					try {
 						StateMutex mtxAudio = new StateMutex();
 						

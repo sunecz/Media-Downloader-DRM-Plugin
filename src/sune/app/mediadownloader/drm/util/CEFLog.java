@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import sune.app.mediadown.util.Threads;
+
 public final class CEFLog {
 	
 	private static CEFLog INSTANCE;
@@ -142,7 +144,7 @@ public final class CEFLog {
 		}
 		
 		public void start() {
-			thread = new Thread(this::run);
+			thread = Threads.newThreadUnmanaged(this::run);
 			thread.start();
 		}
 		

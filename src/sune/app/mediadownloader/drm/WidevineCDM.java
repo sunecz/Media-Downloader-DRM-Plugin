@@ -33,6 +33,7 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.PathSystem;
+import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Web;
@@ -307,7 +308,7 @@ public final class WidevineCDM {
 		}
 		
 		private final void downloadRequest(String requestURL) {
-			(new Thread(() -> {
+			(Threads.newThreadUnmanaged(() -> {
 				try {
 					download(context, requestURL);
 				} catch(Exception ex) {

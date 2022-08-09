@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMLog;
 
@@ -108,7 +109,7 @@ public class RealTimeAudio {
 		volume = new AudioVolume();
 		temp = new AudioVolume();
 		this.listener = listener; // Can be null
-		(thread = new Thread(this::execute)).start();
+		(thread = Threads.newThreadUnmanaged(this::execute)).start();
 	}
 	
 	public void close() throws Exception {

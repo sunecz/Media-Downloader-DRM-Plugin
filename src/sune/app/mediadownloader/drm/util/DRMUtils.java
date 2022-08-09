@@ -16,6 +16,7 @@ import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Reflection;
+import sune.app.mediadown.util.Threads;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;
 
@@ -194,7 +195,7 @@ public final class DRMUtils {
 			String codeQuery = "window.cefQuery({request:'" + requestName + ".'+i+':'+JSON.stringify({'data':d})});";
 			String code = "(new Promise((_rs,_rj)=>{const ret=function(i,d){" + codeQuery + "_rs(0)};" + jsCode + "}))";
 			frame.executeJavaScript(code, null, 0);
-			(new Thread(() -> {
+			(Threads.newThreadUnmanaged(() -> {
 				synchronized(mtx) {
 					try {
 						waiting = true;
