@@ -42,8 +42,8 @@ public final class FFMpegTrimCommandGenerator {
 		this.input = input;
 		this.output = output;
 		this.transform = transform;
-		this.cmdSegmentTrim = String.format("[%s]%s=%s=%%d:%s=%%d,%s[t%%d];", streamDescriptor, fncTrimName,
-		                                    argTrimStart, argTrimEnd, argSetPTS);
+		this.cmdSegmentTrim = DRMUtils.format("[%s]%s=%s=%%d:%s=%%d,%s[t%%d];", streamDescriptor, fncTrimName,
+		                                      argTrimStart, argTrimEnd, argSetPTS);
 		this.argsCommandTrim = argsCommandTrim;
 		this.concatArgs = concatArgs;
 		this.streamType = streamType;
@@ -102,7 +102,7 @@ public final class FFMpegTrimCommandGenerator {
 			IntStream.range(0, numOfCuts)
 				.mapToObj((i) -> "[t" + i + "]")
 				.forEach(concatBuilder::append);
-			concatString = ";" + String.format("%sconcat=n=%d:%s[c]", concatBuilder.toString(), numOfCuts, concatArgs);
+			concatString = ";" + DRMUtils.format("%sconcat=n=%d:%s[c]", concatBuilder.toString(), numOfCuts, concatArgs);
 			concatMap = "c";
 		}
 		// Path to a temporary file for later join
@@ -136,7 +136,7 @@ public final class FFMpegTrimCommandGenerator {
 		IntStream.range(0, numOfTrimCommands)
 			.mapToObj((i) -> "[" + i + ":" + streamType + "]")
 			.forEach(concatBuilder::append);
-		String concatString = String.format("%sconcat=n=%d:%s[c]", concatBuilder.toString(), numOfTrimCommands, concatArgs);
+		String concatString = DRMUtils.format("%sconcat=n=%d:%s[c]", concatBuilder.toString(), numOfTrimCommands, concatArgs);
 		// Build the whole command
 		StringBuilder builder = new StringBuilder();
 		builder.append(" -y -hide_banner -v info");

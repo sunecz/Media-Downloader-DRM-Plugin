@@ -24,7 +24,7 @@ public final class WindowsKill {
 	public static final boolean interrupt(long pid) throws Exception {
 		ensureBinary();
 		try(ReadOnlyProcess process = Processes.createSynchronous(fileBinary)) {
-			process.execute(String.format("-SIGINT %d", pid));
+			process.execute(DRMUtils.format("-SIGINT %d", pid));
 			return process.waitFor() == 0;
 		}
 	}

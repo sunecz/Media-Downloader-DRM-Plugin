@@ -32,7 +32,7 @@ public final class SoundVolumeView {
 	public static final boolean setAudioOutput(long pid, String deviceName) throws Exception {
 		ensureBinary();
 		try(ReadOnlyProcess process = Processes.createSynchronous(fileBinary)) {
-			process.execute(String.format("/SetAppDefault \"%s\" all %d", deviceName, pid));
+			process.execute(DRMUtils.format("/SetAppDefault \"%s\" all %d", deviceName, pid));
 			return process.waitFor() == 0;
 		}
 	}
@@ -43,7 +43,7 @@ public final class SoundVolumeView {
 		try(ReadOnlyProcess process = Processes.createSynchronous(fileBinary)) {
 			String fileName = UUID.randomUUID() + ".json";
 			Path output = Paths.get(PathSystem.getFullPath(SoundVolumeView.class, "resources/binary/drm"), fileName);
-			process.execute(String.format("/SaveFileEncoding 3 /sjson \"%s\"", output.toAbsolutePath().toString()));
+			process.execute(DRMUtils.format("/SaveFileEncoding 3 /sjson \"%s\"", output.toAbsolutePath().toString()));
 			try(InputStream stream = Files.newInputStream(output, StandardOpenOption.READ)) {
 				SSDCollection json = SSDF.readJSON(stream);
 				for(SSDCollection pdata : json.collectionsIterable()) {

@@ -1,5 +1,7 @@
 package sune.app.mediadownloader.drm.integration;
 
+import java.util.Locale;
+
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.StartupWindow;
 import sune.app.mediadown.configuration.Configuration.ConfigurationProperty;
@@ -19,35 +21,39 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	
 	private PluginConfiguration.Builder configuration;
 	
+	private static final String format(String format, Object... args) {
+		return String.format(Locale.US, format, args);
+	}
+	
 	private final void addDefaultBootstrapListeners(DRMBootstrap bootstrap, StringReceiver receiver) {
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, (context) -> {
-			receiver.receive(String.format("Download: %s -> %s", context.url().toExternalForm(),
-			                               context.path().toAbsolutePath().toString()));
+			receiver.receive(format("Download: %s -> %s", context.url().toExternalForm(),
+			                        context.path().toAbsolutePath().toString()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, (context) -> {
-			receiver.receive(String.format("Downloading %s... %.2f%%", context.path().getFileName().toString(),
-			                               context.tracker().getProgress() * 100.0));
+			receiver.receive(format("Downloading %s... %.2f%%", context.path().getFileName().toString(),
+			                        context.tracker().getProgress() * 100.0));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, (context) -> {
-			receiver.receive(String.format("Download done"));
+			receiver.receive(format("Download done"));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_CHECK, (context) -> {
-			receiver.receive(String.format("Checking %s", context.name()));
+			receiver.receive(format("Checking %s", context.name()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARY_LOADING, (context) -> {
-			receiver.receive(String.format("Loading library %s...", context.library().getName()));
+			receiver.receive(format("Loading library %s...", context.library().getName()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARY_LOADED, (context) -> {
-			receiver.receive(String.format("Loading library %s... %s", context.library().getName(),
-			                               context.success() ? "done" : "error"));
+			receiver.receive(format("Loading library %s... %s", context.library().getName(),
+			                        context.success() ? "done" : "error"));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARIES_ERROR, (context) -> {
-			String text = String.format("Cannot load libraries (%d)", context.libraries().length);
+			String text = format("Cannot load libraries (%d)", context.libraries().length);
 			StringBuilder content = new StringBuilder();
 			for(Library library : context.libraries()) {
-				content.append(String.format("%s (%s)\n", library.getName(), library.getPath()));
+				content.append(format("%s (%s)\n", library.getName(), library.getPath()));
 			}
-			String errorText = String.format("Critical error: %s\n\n%s\n", text, content.toString());
+			String errorText = format("Critical error: %s\n\n%s\n", text, content.toString());
 			context.context().error(new IllegalStateException(errorText));
 		});
 	}

@@ -16,6 +16,7 @@ import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
+import sune.app.mediadownloader.drm.util.DRMUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils.BrowserAccessor;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.app.mediadownloader.drm.util.DRMUtils.Point2D;
@@ -122,7 +123,7 @@ public final class DRMBrowser extends JFrame {
 		setAutoRequestFocus(false);
 		setFocusable(false);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-		setTitle(String.format(DRMConstants.FRAME_TITLE_FORMAT, drmContext.uuid().toString()));
+		setTitle(DRMUtils.format(DRMConstants.FRAME_TITLE_FORMAT, drmContext.uuid().toString()));
 		pack(); // Make sure the broswer fits into the window
 		setLocation(0, 0);
 		toBack(); // Make the window always in the back
