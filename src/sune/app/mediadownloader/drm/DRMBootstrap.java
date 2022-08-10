@@ -195,7 +195,7 @@ public final class DRMBootstrap {
 		String baseURL = "https://app.sune.tech/mediadown/drm/lib/" + versionLib;
 		FileChecker fileChecker = libFileChecker(versionLib);
 		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, false);
+		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, false, false);
 	}
 	
 	private final void checkCef(ResourceChecker checker, Path currentDir, boolean checkIntegrity) throws Exception {
@@ -203,7 +203,7 @@ public final class DRMBootstrap {
 		String baseURL = "https://app.sune.tech/mediadown/drm/cef/" + osInfo + "/" + versionCef;
 		FileChecker fileChecker = cefFileChecker(versionCef);
 		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true);
+		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true, true);
 	}
 	
 	private final void checkRes(ResourceChecker checker, Path currentDir, boolean checkIntegrity) throws Exception {
@@ -211,7 +211,7 @@ public final class DRMBootstrap {
 		String baseURL = "https://app.sune.tech/mediadown/drm/res/" + osInfo + "/" + versionRes;
 		FileChecker fileChecker = resFileChecker(versionRes);
 		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true);
+		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true, false);
 	}
 	
 	public final void run(Class<?> clazz) throws Exception {
@@ -364,12 +364,13 @@ public final class DRMBootstrap {
 		
 		private final TrackerManager manager = new TrackerManager();
 		
-		private final ReadableByteChannel channel(DownloadEventContext<DRMBootstrap> context, URL url) throws Exception {
+		private final ReadableByteChannel channel(DownloadEventContext<DRMBootstrap> context, URL url,
+				boolean useCompressedStreams) throws Exception {
 			long total = Web.size(new HeadRequest(url, UserAgent.CHROME));
-			return new DownloadByteChannel(context, url.openStream(), total);
+			return new DownloadByteChannel(context, url.openStream(), total, useCompressedStreams);
 		}
 		
-		private final void download(URL url, Path dest) throws Exception {
+		private final void download(URL url, Path dest, boolean useCompressedStreams) throws Exception {
 			if(url == null || dest == null)
 				throw new IllegalArgumentException();
 			DownloadTracker tracker = new DownloadTracker(0L, false);
@@ -379,7 +380,7 @@ public final class DRMBootstrap {
 			// To be sure, delete the file first, so a fresh copy is downloaded.
 			NIO.deleteFile(dest);
 			NIO.createDir(dest.getParent());
-			try(ReadableByteChannel dbc = channel(context, url);
+			try(ReadableByteChannel dbc = channel(context, url, useCompressedStreams);
 				FileChannel         fch = FileChannel.open(dest, CREATE, WRITE)) {
 				// Notify the listener, if needed
 				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, context);
@@ -412,11 +413,11 @@ public final class DRMBootstrap {
 		}
 		
 		private final void check(String baseURL, Path baseDir, FileChecker checker, boolean checkIntegrity,
-				boolean allowNullLocalEntry) throws Exception {
+				boolean allowNullLocalEntry, boolean useCompressedStreams) throws Exception {
 			if(!NIO.exists(baseDir)) NIO.createDir(baseDir);
 			Path localPath = PathSystem.getPath(clazz, "");
 			Updater.checkResources(baseURL, baseDir, DRMConstants.TIMEOUT, checkListener(), checker,
-				(url, file) -> download(Utils.url(url), ensurePathInDirectory(file, baseDir, true)),
+				(url, file) -> download(Utils.url(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
 				(file, webDir) -> Utils.urlConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
 				(file) -> ensurePathInDirectory(file, baseDir, true),
 				(entryLoc, entryWeb) -> {
@@ -452,11 +453,16 @@ public final class DRMBootstrap {
 			private final DownloadEventContext<DRMBootstrap> context;
 			private final ReadableByteChannel channel;
 			
-			public DownloadByteChannel(DownloadEventContext<DRMBootstrap> context, InputStream stream, long total)
-					throws IOException {
+			public DownloadByteChannel(DownloadEventContext<DRMBootstrap> context, InputStream stream, long total,
+					boolean useCompressedStreams) throws IOException {
 				this.context = context;
 				this.context.tracker().updateTotal(total);
-				this.channel = Channels.newChannel(new GZIPInputStream(new UIS(stream)));
+				this.channel = Channels.newChannel(newInputStream(stream, useCompressedStreams));
+			}
+			
+			private final InputStream newInputStream(InputStream stream, boolean useCompressedStreams)
+					throws IOException {
+				return useCompressedStreams ? new GZIPInputStream(new UIS(stream)) : new UIS(stream);
 			}
 			
 			@Override
