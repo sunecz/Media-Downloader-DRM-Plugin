@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 
 import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.IEventType;
@@ -56,7 +57,7 @@ public final class DRMBootstrap {
 	private final List<Library> libraries = new ArrayList<>();
 	private final String pathPrefixLib = "lib/drm/";
 	private final String versionLib = "0001";
-	private final String versionCef = "0001";
+	private final String versionCef = "0002";
 	private final String versionRes = "0001";
 	
 	private final boolean isDebug;
@@ -447,10 +448,31 @@ public final class DRMBootstrap {
 		
 		private final class DownloadByteChannel implements ReadableByteChannel {
 			
-			// The original channel
-			private final ReadableByteChannel channel;
 			// The listener to which pass the information
 			private final DownloadEventContext<DRMBootstrap> context;
+			private final ReadableByteChannel channel;
+			
+			public DownloadByteChannel(DownloadEventContext<DRMBootstrap> context, InputStream stream, long total)
+					throws IOException {
+				this.context = context;
+				this.context.tracker().updateTotal(total);
+				this.channel = Channels.newChannel(new GZIPInputStream(new UIS(stream)));
+			}
+			
+			@Override
+			public boolean isOpen() {
+				return channel.isOpen();
+			}
+			
+			@Override
+			public void close() throws IOException {
+				channel.close();
+			}
+			
+			@Override
+			public int read(ByteBuffer dst) throws IOException {
+				return channel.read(dst);
+			}
 			
 			// Underlying input stream implementation
 			private final class UIS extends InputStream {
@@ -474,28 +496,6 @@ public final class DRMBootstrap {
 					eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, context);
 					return read;
 				}
-			}
-			
-			public DownloadByteChannel(DownloadEventContext<DRMBootstrap> context, InputStream stream, long total)
-					throws IOException {
-				this.context = context;
-				this.channel = Channels.newChannel(new UIS(stream));
-				context.tracker().updateTotal(total);
-			}
-			
-			@Override
-			public boolean isOpen() {
-				return channel.isOpen();
-			}
-			
-			@Override
-			public void close() throws IOException {
-				channel.close();
-			}
-			
-			@Override
-			public int read(ByteBuffer dst) throws IOException {
-				return channel.read(dst);
 			}
 		}
 	}
