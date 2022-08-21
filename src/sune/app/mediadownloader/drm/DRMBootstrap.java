@@ -22,6 +22,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
+import sune.app.mediadown.MediaDownloader;
+import sune.app.mediadown.MediaDownloader.Versions.VersionEntryAccessor;
 import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.IEventType;
 import sune.app.mediadown.event.Listener;
@@ -33,6 +35,7 @@ import sune.app.mediadown.update.FileChecker;
 import sune.app.mediadown.update.FileDownloadListener;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
+import sune.app.mediadown.update.Version;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.PathSystem;
@@ -184,7 +187,7 @@ public final class DRMBootstrap {
 	
 	private final void generateHashList(FileChecker checker, Path output, boolean checkRequirements)
 			throws IOException {
-		if(!checker.generate((path) -> true, checkRequirements, true)) {
+		if(!checker.generate((path) -> true, checkRequirements, (path) -> true)) {
 			throw new IllegalStateException("Unable to generate hash list.");
 		}
 		// Save the list of entries to a file
@@ -194,24 +197,54 @@ public final class DRMBootstrap {
 	private final void checkLib(ResourceChecker checker, Path currentDir, boolean checkIntegrity) throws Exception {
 		String baseURL = "https://app.sune.tech/mediadown/drm/lib/" + versionLib;
 		FileChecker fileChecker = libFileChecker(versionLib);
-		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, false, false);
+		VersionEntryAccessor version = VersionEntryAccessor.of("drm_lib");
+		Version verLocal = version.get();
+		Version verRemote = Version.fromString(versionLib);
+		
+		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
+			checkIntegrity = true;
+		}
+		
+		boolean checkHashes = checkIntegrity;
+		fileChecker.generate((file) -> true, false, (path) -> checkHashes);
+		checker.check(baseURL, currentDir, fileChecker, checkHashes, false, false);
+		version.set(verRemote);
 	}
 	
 	private final void checkCef(ResourceChecker checker, Path currentDir, boolean checkIntegrity) throws Exception {
 		String osInfo = OSUtils.getSystemName() + OSUtils.getSystemArch();
 		String baseURL = "https://app.sune.tech/mediadown/drm/cef/" + osInfo + "/" + versionCef;
 		FileChecker fileChecker = cefFileChecker(versionCef);
-		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true, true);
+		VersionEntryAccessor version = VersionEntryAccessor.of("drm_cef");
+		Version verLocal = version.get();
+		Version verRemote = Version.fromString(versionCef);
+		
+		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
+			checkIntegrity = true;
+		}
+		
+		boolean checkHashes = checkIntegrity;
+		fileChecker.generate((file) -> true, false, (path) -> checkHashes);
+		checker.check(baseURL, currentDir, fileChecker, checkHashes, true, true);
+		version.set(verRemote);
 	}
 	
 	private final void checkRes(ResourceChecker checker, Path currentDir, boolean checkIntegrity) throws Exception {
 		String osInfo = OSUtils.getSystemName() + OSUtils.getSystemArch();
 		String baseURL = "https://app.sune.tech/mediadown/drm/res/" + osInfo + "/" + versionRes;
 		FileChecker fileChecker = resFileChecker(versionRes);
-		fileChecker.generate((file) -> true, false, checkIntegrity);
-		checker.check(baseURL, currentDir, fileChecker, checkIntegrity, true, false);
+		VersionEntryAccessor version = VersionEntryAccessor.of("drm_res");
+		Version verLocal = version.get();
+		Version verRemote = Version.fromString(versionRes);
+		
+		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
+			checkIntegrity = true;
+		}
+		
+		boolean checkHashes = checkIntegrity;
+		fileChecker.generate((file) -> true, false, (path) -> checkHashes);
+		checker.check(baseURL, currentDir, fileChecker, checkHashes, true, false);
+		version.set(verRemote);
 	}
 	
 	public final void run(Class<?> clazz) throws Exception {
@@ -223,7 +256,6 @@ public final class DRMBootstrap {
 		
 		this.clazz = clazz;
 		Path currentDir = PathSystem.getPath(clazz, "");
-		boolean checkIntegrity = true;
 		
 		registerLibraries();
 		
@@ -234,6 +266,7 @@ public final class DRMBootstrap {
 			return; // Do not continue
 		}
 		
+		boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
 		ResourceChecker checker = new ResourceChecker();
 		checkLib(checker, currentDir, checkIntegrity);
 		checkCef(checker, currentDir, checkIntegrity);
@@ -414,7 +447,10 @@ public final class DRMBootstrap {
 		
 		private final void check(String baseURL, Path baseDir, FileChecker checker, boolean checkIntegrity,
 				boolean allowNullLocalEntry, boolean useCompressedStreams) throws Exception {
-			if(!NIO.exists(baseDir)) NIO.createDir(baseDir);
+			if(!NIO.exists(baseDir)) {
+				NIO.createDir(baseDir);
+			}
+			
 			Path localPath = PathSystem.getPath(clazz, "");
 			Updater.checkResources(baseURL, baseDir, DRMConstants.TIMEOUT, checkListener(), checker,
 				(url, file) -> download(Utils.url(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
@@ -429,7 +465,7 @@ public final class DRMBootstrap {
 							&& ((checkIntegrity // Muse be called before getHash()
 									&& !entryLoc.getHash().equals(entryWeb.getHash()))
 								|| !NIO.exists(entryLoc.getPath()));
-				});
+				}, null);
 		}
 		
 		private final CheckListener checkListener() {
