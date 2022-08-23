@@ -199,7 +199,7 @@ public final class DRMBootstrap {
 		FileChecker fileChecker = libFileChecker(versionLib);
 		VersionEntryAccessor version = VersionEntryAccessor.of("drm_lib");
 		Version verLocal = version.get();
-		Version verRemote = Version.fromString(versionLib);
+		Version verRemote = Version.of(versionLib);
 		
 		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
 			checkIntegrity = true;
@@ -217,7 +217,7 @@ public final class DRMBootstrap {
 		FileChecker fileChecker = cefFileChecker(versionCef);
 		VersionEntryAccessor version = VersionEntryAccessor.of("drm_cef");
 		Version verLocal = version.get();
-		Version verRemote = Version.fromString(versionCef);
+		Version verRemote = Version.of(versionCef);
 		
 		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
 			checkIntegrity = true;
@@ -235,7 +235,7 @@ public final class DRMBootstrap {
 		FileChecker fileChecker = resFileChecker(versionRes);
 		VersionEntryAccessor version = VersionEntryAccessor.of("drm_res");
 		Version verLocal = version.get();
-		Version verRemote = Version.fromString(versionRes);
+		Version verRemote = Version.of(versionRes);
 		
 		if(verLocal.compareTo(verRemote) != 0 || verLocal == Version.UNKNOWN) {
 			checkIntegrity = true;
