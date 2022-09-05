@@ -1,9 +1,7 @@
 package sune.app.mediadownloader.drm.phase;
 
-import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_BUFFER_SIZE_MS;
 import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_MAX_LATENCY_SAMPLES;
 import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
-import static sune.app.mediadownloader.drm.DRMConstants.MS_IN_SEC;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,7 +47,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	}
 	
 	private static final double calculateAudioOffset() {
-		return (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE - AUDIO_BUFFER_SIZE_MS / MS_IN_SEC;
+		return (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE;
 	}
 	
 	@Override
