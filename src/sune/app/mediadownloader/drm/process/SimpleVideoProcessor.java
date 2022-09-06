@@ -135,7 +135,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 			}
 		}
 		
-		filesManager.delete(path);
+		filesManager.deleteNow(path);
 	}
 	
 	public double duration() {

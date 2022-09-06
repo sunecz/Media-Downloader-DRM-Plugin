@@ -10,7 +10,6 @@ import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
-import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMContext;
@@ -120,10 +119,9 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		
 		filesManager.delete(videoOutputPath);
 		filesManager.delete(audioOutputPath);
+		filesManager.delete(outputRecord);
 		
-		for(Path path : filesManager.pathsToDelete()) {
-			NIO.delete(path);
-		}
+		filesManager.deleteAll();
 	}
 	
 	@Override

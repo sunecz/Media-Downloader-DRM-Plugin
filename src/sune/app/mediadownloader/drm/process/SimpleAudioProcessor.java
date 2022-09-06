@@ -135,7 +135,7 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 			}
 		}
 		
-		filesManager.delete(path);
+		filesManager.deleteNow(path);
 	}
 	
 	public double duration() {
