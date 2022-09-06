@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -297,6 +298,17 @@ public final class DRMUtils {
 		public PromiseBase<T> then(Consumer<T> resolved) {
 			return then(resolved, null);
 		}
+		
+		@Override
+		public T get() throws InterruptedException, ExecutionException {
+			Pair<Byte, T> result = first.get();
+			return result != null ? result.b : null;
+		}
+		
+		@Override
+		public void await() throws InterruptedException, ExecutionException {
+			get();
+		}
 	}
 	
 	public static interface Promise<T> {
@@ -305,6 +317,8 @@ public final class DRMUtils {
 		void reject(T arg);
 		Promise<T> then(Consumer<T> resolved, Consumer<T> rejected);
 		Promise<T> then(Consumer<T> resolved);
+		T get() throws InterruptedException, ExecutionException;
+		void await() throws InterruptedException, ExecutionException;
 		
 		public static final class OfRef<T> extends PromiseBase<T> {
 			

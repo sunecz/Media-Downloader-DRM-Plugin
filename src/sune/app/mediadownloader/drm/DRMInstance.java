@@ -23,6 +23,7 @@ import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
 import sune.app.mediadown.util.Threads;
+import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
 import sune.app.mediadownloader.drm.event.DRMInstanceEvent;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
@@ -182,10 +183,11 @@ public final class DRMInstance {
 		Media media = configuration.media();
 		DRMResolver resolver = engine.createResolver(context, url, output, media);
 		DRMBrowser browser = DRM.createClient(context, resolver).createBrowser(width, height);
+		String initUrl = resolver.url(); // Get before starting the browser
 		
 		browser.start();
 		browser.client().awaitLoaded();
-		browser.load(resolver.url());
+		browser.load(initUrl);
 		browserContext = browser.context();
 		
 		pipeline.addEventListener(PipelineEvent.ERROR, (pair) -> error(pair.b));
@@ -368,24 +370,37 @@ public final class DRMInstance {
 			(Threads.newThreadUnmanaged(() -> {
 				Property<Double> time = new Property<>(data.time);
 				
+				if(logger.isDebugEnabled())
+					logger.debug("Waiting for fields initialization...");
+				
+				// Ensure that the playback field is set
+				mtxInit.await();
+				
+				if(logger.isDebugEnabled())
+					logger.debug("Fields initialization completed.");
+				
+				if(logger.isDebugEnabled())
+					logger.debug("Checking if the video is playing...");
+				
+				boolean isPlaying = Utils.ignore(playback.isPlaying()::get, false);
+				
+				if(logger.isDebugEnabled())
+					logger.debug("Video is playing: {}.", isPlaying);
+				
+				if(isPlaying) {
+					if(logger.isDebugEnabled())
+						logger.debug("Video is playing. Pausing...");
+					
+					Utils.ignore(playback.pause()::await);
+				}
+				
 				// Time must be set to 0.0 seconds manually
 				if(time.getValue() != 0.0) {
 					if(logger.isDebugEnabled())
-						logger.debug("Time is not 0.0 seconds. Waiting for fields initialization...");
-					
-					// Ensure that the playback field is set
-					mtxInit.await();
-					
-					if(logger.isDebugEnabled())
-						logger.debug("Fields initialization completed. Setting time to 0.0 seconds...");
+						logger.debug("Time is not 0.0 seconds. Setting time to 0.0 seconds...");
 					
 					// Set the time to 0.0 seconds
-					StateMutex mtx = new StateMutex();
-					playback.time(0.0, true).then(() -> {
-						time.setValue(0.0);
-						mtx.unlock();
-					});
-					mtx.await();
+					Utils.ignore(playback.time(0.0, true).then(() -> time.setValue(0.0))::await);
 					
 					if(logger.isDebugEnabled())
 						logger.debug("Time set to 0.0 seconds.");

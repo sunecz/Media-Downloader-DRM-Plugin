@@ -91,6 +91,11 @@
 				ret(0, {});
 			});
 		},
+		isPlaying: function(video_id, ret) {
+			const video = this._videoPlayer(video_id);
+			const is_playing = this._isPlaying(video);
+			ret(0, { is_playing: is_playing });
+		},
 	};
 
 	window.MediaDownloader = window.MediaDownloader || { DRM: {} };

@@ -40,4 +40,8 @@ public final class Playback {
 	public Promise.OfVoid volume(double volume) {
 		return JS.Playback.volume(browser, frame, videoId, volume);
 	}
+	
+	public Promise.OfRef<Boolean> isPlaying() {
+		return JS.Playback.isPlaying(browser, frame, videoId);
+	}
 }
