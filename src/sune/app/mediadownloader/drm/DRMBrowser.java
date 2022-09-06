@@ -134,21 +134,38 @@ public final class DRMBrowser extends JFrame {
 		toBack();
 	}
 	
-	private final void close() {
+	private final void loadBlankPage() {
 		// This solves an issue with infrequent seemingly random crashes of libcef.dll
 		// For more info see: https://www.magpcss.org/ceforum/viewtopic.php?f=6&t=13044
-		
 		String urlToLoad = "about:blank";
 		client.loadNotifier().enable(urlToLoad);
 		
 		if(logger.isDebugEnabled())
-			logger.debug("Loading \"{}\" before closing to avoid crashes...", urlToLoad);
+			logger.debug("Loading the blank page...", urlToLoad);
 		
 		load(urlToLoad);
 		client.loadNotifier().await(urlToLoad);
 
 		if(logger.isDebugEnabled())
-			logger.debug("Loaded \"{}\". Dispatching closing event...", urlToLoad);
+			logger.debug("Loaded the blank page.", urlToLoad);
+	}
+	
+	private final void close() {
+		if(logger.isDebugEnabled())
+			logger.debug("Closing all active JS requests...");
+		
+		client.closeJSRequests();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Active JS requests closed.");
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Loading the blank page before closing to avoid crashes...");
+		
+		loadBlankPage();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Blank page loaded. Dispatching closing event...");
 		
 		SwingUtilities.invokeLater(() -> {
 			dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));

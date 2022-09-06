@@ -2,6 +2,8 @@ package sune.app.mediadownloader.drm;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,7 +33,7 @@ public final class DRMClient {
 	private final LoadNotifier loadNotifier;
 	private DRMBrowser browser;
 	
-	private final Map<String, JSRequest> jsResults = new HashMap<>();
+	private final Map<String, JSRequest> jsResults = new LinkedHashMap<>();
 	
 	public DRMClient(CefClient client, DRMContext context, DRMProxy proxy, DRMResolver resolver) {
 		this.client = client;
@@ -107,6 +109,13 @@ public final class DRMClient {
 	
 	public void addJSRequest(CefFrame frame, JSRequest result) {
 		jsResults.compute(result.requestName() + ':', (k, v) -> result).send(frame);
+	}
+	
+	public void closeJSRequests() {
+		for(Iterator<JSRequest> it = jsResults.values().iterator(); it.hasNext();) {
+			it.next().interrupt();
+			it.remove();
+		}
 	}
 	
 	public CefClient cefClient() {
