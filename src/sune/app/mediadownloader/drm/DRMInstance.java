@@ -273,6 +273,7 @@ public final class DRMInstance {
 	public void stop() throws Exception {
 		if(!running.get()) return; // Do not continue
 		running.set(false);
+		context.browserContext().close();
 		pipeline.stop();
 		if(!done.get()) stopped.set(true);
 		eventRegistry.call(DRMInstanceEvent.END, context);

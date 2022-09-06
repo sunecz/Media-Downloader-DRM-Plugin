@@ -72,7 +72,7 @@ public class DRMProxy {
 	
 	public void start() {
 		if(server != null)
-			throw new IllegalStateException("Proxy is already running");
+			return; // Already running, nothing to do
 		if(serverBootstrap == null)
 			throw new IllegalStateException("Proxy not created yet");
 		server = serverBootstrap.start();
@@ -81,7 +81,7 @@ public class DRMProxy {
 	
 	public void stop() {
 		if(server == null)
-			throw new IllegalStateException("Proxy is not running");
+			return; // Not running, nothing to do
 		server.stop();
 	}
 	

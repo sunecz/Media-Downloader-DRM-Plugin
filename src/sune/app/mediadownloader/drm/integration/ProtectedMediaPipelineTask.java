@@ -78,7 +78,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	private static final void lock() throws Exception {
 		synchronized(mutex) {
 			for(Throwable ex; count >= MAX_WORKERS;) {
-				mutex.await();
+				mutex.awaitAndReset();
 				if((ex = mutex.getExceptionAndReset()) != null)
 					throw (Exception) ex;
 			}
@@ -347,7 +347,6 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	@Override
 	public final void stop() throws Exception {
 		if(instance != null) {
-			instance.context().browserContext().close();
 			instance.stop();
 		}
 	}
