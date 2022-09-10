@@ -11,6 +11,7 @@ import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMLog;
+import sune.app.mediadownloader.drm.integration.DRMPluginConfiguration;
 import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
 import sune.app.mediadownloader.drm.util.Cut;
 import sune.app.mediadownloader.drm.util.DRMProcessUtils;
@@ -135,7 +136,10 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 			}
 		}
 		
-		filesManager.deleteNow(path);
+		DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
+		if(!configuration.processKeepTemporaryFiles()) {
+			filesManager.deleteNow(path);
+		}
 	}
 	
 	public double duration() {

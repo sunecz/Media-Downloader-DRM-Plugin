@@ -7,7 +7,15 @@
 					general: "DRM"
 				},
 				fields: {
-					debug: "Debug mode"
+					debug: "Debug mode",
+					record: {
+						useMediaFps: "Use FPS of media source, if available",
+						defaultFps:  "Default FPS"
+					},
+					process: {
+						keepRecordFile:     "Keep record file",
+						keepTemporaryFiles: "Keep temporary files"
+					}
 				}
 			},
 			drm_instance: {

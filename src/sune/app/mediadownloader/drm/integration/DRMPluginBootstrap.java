@@ -4,7 +4,6 @@ import java.util.Locale;
 
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.StartupWindow;
-import sune.app.mediadown.configuration.Configuration.ConfigurationProperty;
 import sune.app.mediadown.plugin.PluginBootstrap;
 import sune.app.mediadown.plugin.PluginBootstrapBase;
 import sune.app.mediadown.plugin.PluginConfiguration;
@@ -59,13 +58,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	}
 	
 	private final void initConfiguration() {
-		PluginConfiguration.Builder builder
-			= new PluginConfiguration.Builder(context().getPlugin().instance().name());
-		String group = builder.name() + ".general";
-		builder.addProperty(ConfigurationProperty.ofBoolean("debug")
-			.inGroup(group)
-			.withDefaultValue(false));
-		configuration = builder;
+		configuration = DRMPluginConfiguration.builder(context().getPlugin().instance().name());
 	}
 	
 	@Override
@@ -77,8 +70,8 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		DRMBootstrap.Builder builder = new DRMBootstrap.Builder();
 		
 		// Obtain the configuration and its values
-		PluginConfiguration config = context().getConfiguration();
-		boolean debugMode = config.booleanValue("debug");
+		DRMPluginConfiguration configuration = DRMPluginConfiguration.initialize(context().getConfiguration());
+		boolean debugMode = configuration.debug();
 		
 		// Enable the Debug mode based on the configuration
 		if(debugMode) {
