@@ -11,7 +11,6 @@ import org.cef.CefClient;
 import org.cef.CefSettings;
 import org.cef.CefSettings.LogSeverity;
 import org.cef.browser.CefBrowser;
-import org.cef.handler.CefLifeSpanHandlerAdapter;
 import org.littleshoot.proxy.mitm.RootCertificateException;
 import org.slf4j.Logger;
 
@@ -60,6 +59,16 @@ public final class DRM {
 			// Add automatic dispose on shutdown
 			Runtime.getRuntime().addShutdownHook(Threads.newThreadUnmanaged(DRM::dispose));
 			cefStarted = true;
+		}
+	}
+	
+	protected static final void browserCreated(CefBrowser browser) {
+		++cefBrowserCtr;
+	}
+	
+	protected static final void browserClosed(CefBrowser browser) {
+		if(--cefBrowserCtr == 0) {
+			mtxDispose.unlock();
 		}
 	}
 	
@@ -115,39 +124,14 @@ public final class DRM {
 	
 	public static final DRMClient createClient(DRMContext context, DRMResolver resolver) {
 		CefClient client = getApplication().createClient();
+		
 		DRMProxy proxy;
 		try {
 			proxy = new DRMProxy(DRMConstants.PROXY_PORT, resolver).create();
 		} catch(RootCertificateException ex) {
 			throw new IllegalStateException("Unable to create proxy", ex);
 		}
-		client.addLifeSpanHandler(new CefLifeSpanHandlerAdapter() {
-			
-			private final DRMProxy drmProxy = proxy;
-			
-			@Override
-			public void onAfterCreated(CefBrowser browser) {
-				if(logger.isDebugEnabled())
-					logger.debug("Client started.");
-				drmProxy.start();
-				++cefBrowserCtr;
-			}
-			
-			@Override
-			public boolean doClose(CefBrowser browser) {
-				return browser.doClose();
-			}
-			
-			@Override
-			public void onBeforeClose(CefBrowser browser) {
-				if(logger.isDebugEnabled())
-					logger.debug("Client closed.");
-				drmProxy.stop();
-				if(--cefBrowserCtr == 0) {
-					mtxDispose.unlock();
-				}
-			}
-		});
+		
 		return new DRMClient(client, context, proxy, resolver);
 	}
 	
@@ -170,8 +154,10 @@ public final class DRM {
 	}
 	
 	public static final void dispose() {
-		while(cefBrowserCtr > 0)
-			mtxDispose.await();
+		while(cefBrowserCtr > 0) {
+			mtxDispose.awaitAndReset();
+		}
+		
 		getApplication().dispose();
 	}
 }

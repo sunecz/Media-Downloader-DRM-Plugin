@@ -91,9 +91,6 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 					SwingUtilities.invokeLater(() -> {
 						browser.getContentPane().setPreferredSize(new Dimension(videoWidth, videoHeight));
 						browser.pack();
-						browser.invalidate();
-						browser.validate();
-						browser.repaint();
 						context.ready(duration, vid, frameID);
 					});
 				}

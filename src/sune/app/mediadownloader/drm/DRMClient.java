@@ -13,9 +13,11 @@ import org.cef.browser.CefFrame;
 import org.cef.browser.CefMessageRouter;
 import org.cef.callback.CefQueryCallback;
 import org.cef.handler.CefDisplayHandlerAdapter;
+import org.cef.handler.CefLifeSpanHandlerAdapter;
 import org.cef.handler.CefLoadHandlerAdapter;
 import org.cef.handler.CefMessageRouterHandlerAdapter;
 import org.cef.network.CefRequest.TransitionType;
+import org.slf4j.Logger;
 
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.app.mediadownloader.drm.util.StateMutex;
@@ -25,6 +27,7 @@ import sune.util.ssdf2.SSDF;
 public final class DRMClient {
 	
 	private static final String URL_BLANK = "about:blank";
+	private static final Logger logger = DRMLog.get();
 	
 	private final CefClient client;
 	private final DRMContext context;
@@ -32,6 +35,9 @@ public final class DRMClient {
 	private final DRMResolver resolver;
 	private final LoadNotifier loadNotifier;
 	private DRMBrowser browser;
+	
+	private volatile int cefBrowserCtr;
+	private final StateMutex mtxDispose = new StateMutex();
 	
 	private final Map<String, JSRequest> jsResults = new LinkedHashMap<>();
 	
@@ -41,6 +47,50 @@ public final class DRMClient {
 		this.proxy = proxy;
 		this.resolver = resolver;
 		this.loadNotifier = new LoadNotifier();
+		this.cefBrowserCtr = 0;
+		
+		this.client.addLifeSpanHandler(new CefLifeSpanHandlerAdapter() {
+			
+			@Override
+			public void onAfterCreated(CefBrowser browser) {
+				browserCreated(browser);
+			}
+			
+			@Override
+			public boolean doClose(CefBrowser browser) {
+				return browser.doClose();
+			}
+			
+			@Override
+			public void onBeforeClose(CefBrowser browser) {
+				browserClosed(browser);
+			}
+		});
+	}
+	
+	private final void browserCreated(CefBrowser browser) {
+		if(logger.isDebugEnabled())
+			logger.debug("Client started (client={}, browser={}, identifier={}).", System.identityHashCode(client),
+			             System.identityHashCode(browser), browser.getIdentifier());
+		
+		DRM.browserCreated(browser);
+		
+		if(cefBrowserCtr++ == 0) {
+			proxy.start();
+		}
+	}
+	
+	private final void browserClosed(CefBrowser browser) {
+		if(logger.isDebugEnabled())
+			logger.debug("Client closed (client={}, browser={}, identifier={}).", System.identityHashCode(client),
+			             System.identityHashCode(browser), browser.getIdentifier());
+		
+		DRM.browserClosed(browser);
+		
+		if(--cefBrowserCtr == 0) {
+			proxy.stop();
+			mtxDispose.unlock();
+		}
 	}
 	
 	private final boolean handleQuery(CefBrowser cefBrowser, CefFrame frame, long query_id, String request,
@@ -99,7 +149,7 @@ public final class DRMClient {
 				return isDebugDisabled;
 			}
 		});
-		browser = new DRMBrowser(context, this, width, height);
+		browser = new DRMBrowser(context, this, URL_BLANK, width, height);
 		return browser;
 	}
 	
@@ -116,6 +166,14 @@ public final class DRMClient {
 			it.next().interrupt();
 			it.remove();
 		}
+	}
+	
+	public void dispose() {
+		while(cefBrowserCtr > 0) {
+			mtxDispose.awaitAndReset();
+		}
+		
+		client.dispose();
 	}
 	
 	public CefClient cefClient() {
