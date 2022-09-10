@@ -1,5 +1,6 @@
 package sune.app.mediadownloader.drm.phase;
 
+import java.net.SocketException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -306,6 +307,18 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		recordActive.set(false);
 	}
 	
+	private final void closeAudio() throws Exception {
+		if(audio != null) {
+			try {
+				audio.close();
+			} catch(SocketException ex) {
+				// Ignore "Connection reset" exceptions
+				if(!ex.getMessage().equals("Connection reset"))
+					throw ex;
+			}
+		}
+	}
+	
 	@Override
 	public RecordPhaseResult run(Pipeline pipeline) throws Exception {
 		running.set(true);
@@ -372,11 +385,15 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			return new RecordPhaseResult(context, recordInfo);
 		} finally {
 			running.set(false);
+			
 			if(!stopped.get()) {
-				context.processManager().closeAll();
-				if(audio != null) audio.close();
-				done.set(true);
-				context.eventRegistry().call(RecordEvent.END, context);
+				try {
+					context.processManager().closeAll();
+					closeAudio();
+				} finally {
+					done.set(true);
+					context.eventRegistry().call(RecordEvent.END, context);
+				}
 			}
 		}
 	}
@@ -385,11 +402,19 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	public void stop() throws Exception {
 		if(!running.get()) return; // Do not continue
 		running.set(false);
-		context.processManager().stop();
-		if(audio != null) audio.close();
-		mtxDone.unlock();
-		if(!done.get()) stopped.set(true);
-		context.eventRegistry().call(RecordEvent.END, context);
+		
+		try {
+			context.processManager().stop();
+			closeAudio();
+		} finally {
+			mtxDone.unlock();
+			
+			if(!done.get()) {
+				stopped.set(true);
+			}
+			
+			context.eventRegistry().call(RecordEvent.END, context);
+		}
 	}
 	
 	@Override
