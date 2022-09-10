@@ -1,5 +1,6 @@
 package sune.app.mediadownloader.drm;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -128,7 +129,7 @@ public final class DRM {
 		DRMProxy proxy;
 		try {
 			proxy = new DRMProxy(DRMConstants.PROXY_PORT, resolver).create();
-		} catch(RootCertificateException ex) {
+		} catch(RootCertificateException | IOException ex) {
 			throw new IllegalStateException("Unable to create proxy", ex);
 		}
 		
