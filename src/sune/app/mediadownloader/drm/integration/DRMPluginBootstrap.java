@@ -27,7 +27,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	
 	private final void addDefaultBootstrapListeners(DRMBootstrap bootstrap, StringReceiver receiver) {
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, (context) -> {
-			receiver.receive(format("Download: %s -> %s", context.url().toExternalForm(),
+			receiver.receive(format("Download: %s -> %s", context.uri().toString(),
 			                        context.path().toAbsolutePath().toString()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, (context) -> {

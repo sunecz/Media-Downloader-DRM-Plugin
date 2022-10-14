@@ -1,23 +1,13 @@
 package sune.app.mediadownloader.drm;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -27,8 +17,9 @@ import java.util.stream.Stream;
 import org.cef.CefApp;
 import org.slf4j.Logger;
 
-import sune.app.mediadown.event.tracker.DownloadTracker;
-import sune.app.mediadown.event.tracker.TrackerManager;
+import sune.app.mediadown.download.DownloadConfiguration;
+import sune.app.mediadown.download.FileDownloader;
+import sune.app.mediadown.event.DownloadEvent;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
@@ -40,7 +31,6 @@ import sune.app.mediadown.util.Web;
 import sune.app.mediadown.util.Web.GetRequest;
 import sune.app.mediadown.util.Web.PostRequest;
 import sune.app.mediadown.util.Web.Request;
-import sune.app.mediadown.util.Web.StreamResponse;
 import sune.app.mediadown.util.Web.StringResponse;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
@@ -185,100 +175,31 @@ public final class WidevineCDM {
 	
 	private static final class WidevineCDMDownloader {
 		
-		private final TrackerManager manager;
-		private DownloadTracker tracker;
-		
-		private FileChannel channel;
-		private StreamResponse response;
-		private ByteBuffer buffer;
-		
-		private long bytes;
-		private long total;
-		
-		private final AtomicBoolean running = new AtomicBoolean();
-		
-		private WidevineCDMDownloader(TrackerManager manager) {
-			this.manager = manager;
-		}
-		
-		private final ReadableByteChannel urlChannel(Request request) throws Exception {
-			response = Web.requestStream(request);
-			List<String> lengths = Optional.ofNullable(response.headers.get("Content-Length"))
-					.orElseGet(() -> response.headers.get("content-length"));
-			total = !lengths.isEmpty() ? Long.valueOf(lengths.get(0)) : -1L;
-			tracker = new DownloadTracker(total);
-			manager.setTracker(tracker);
-			return Channels.newChannel(response.stream);
-		}
-		
-		private final void openFile(Path file) throws IOException {
-			channel = FileChannel.open(file, CREATE, WRITE);
-		}
-		
-		private final void closeFile() throws Exception {
-			if(channel != null) {
-				channel.close();
-				channel = null;
-			}
-		}
-		
-		private final ByteBuffer buffer() {
-			return buffer == null ? (buffer = ByteBuffer.allocate(8192)) : (ByteBuffer) buffer.clear();
-		}
-		
-		private final void write(ByteBuffer buffer) throws IOException {
-			channel.write(buffer);
-		}
-		
-		private final long download(Request request, Path file) throws Exception {
-			running.set(true);
-			try(ReadableByteChannel input = urlChannel(request)) {
-				openFile(file);
-				ByteBuffer buffer = buffer();
-				while(true) {
-					// Terminate the transfer when not running
-					if(!running.get()) {
-						input.close();
-						// Do not continue
-						break;
-					}
-					int read = input.read(buffer);
-					if((read <= 0L)) {
-						break;
-					}
-					// Write the buffer to the output
-					buffer.flip();
-					write(buffer);
-					buffer.clear();
-					// Update the bytes
-					bytes += read;
-					// Update the tracker
-					tracker.update(read);
-				}
-				return bytes;
-			} finally {
-				// Also close the stream response
-				if((response != null)) response.close();
-				// Close the opened file
-				closeFile();
-				running.set(false);
-			}
-		}
-		
 		public static final Path download(String packageURL) throws Exception {
-			if(context != null)
-				context.eventRegistry().call(WidevineCDMEvent.BEGIN_DOWNLOAD, context);
-			Path output = PathSystem.getPath(WidevineCDM.class, "widevine.crx");
-			TrackerManager manager = context.trackerManager();
-			WidevineCDMDownloader downloader = new WidevineCDMDownloader(manager);
-			manager.setUpdateListener(() -> {
-				if(context != null)
-					context.eventRegistry().call(WidevineCDMEvent.UPDATE_DOWNLOAD, new Pair<>(context, manager));
+			FileDownloader downloader = new FileDownloader(context.trackerManager());
+			
+			downloader.addEventListener(DownloadEvent.BEGIN, (d) -> {
+				if(context != null) {
+					context.eventRegistry().call(WidevineCDMEvent.BEGIN_DOWNLOAD, context);
+				}
 			});
+			
+			downloader.addEventListener(DownloadEvent.UPDATE, (pair) -> {
+				if(context != null) {
+					context.eventRegistry().call(WidevineCDMEvent.UPDATE_DOWNLOAD, new Pair<>(context, pair.b));
+				}
+			});
+			
+			downloader.addEventListener(DownloadEvent.END, (d) -> {
+				if(context != null) {
+					context.eventRegistry().call(WidevineCDMEvent.END_DOWNLOAD, context);
+				}
+			});
+			
+			Path output = PathSystem.getPath(WidevineCDM.class, "widevine.crx");
 			Request request = new GetRequest(Utils.url(packageURL), UserAgent.CHROME);
-			downloader.download(request, output);
-			if(context != null)
-				context.eventRegistry().call(WidevineCDMEvent.END_DOWNLOAD, context);
+			downloader.start(request, output, DownloadConfiguration.ofDefault());
+			
 			return output;
 		}
 	}

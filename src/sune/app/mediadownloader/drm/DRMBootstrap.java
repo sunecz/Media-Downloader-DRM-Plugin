@@ -1,29 +1,26 @@
 package sune.app.mediadownloader.drm;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
-
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.FileChannel;
-import java.nio.channels.ReadableByteChannel;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.zip.GZIPInputStream;
 
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.MediaDownloader.Versions.VersionEntryAccessor;
+import sune.app.mediadown.Shared;
+import sune.app.mediadown.download.DownloadConfiguration;
+import sune.app.mediadown.download.FileDownloader;
+import sune.app.mediadown.download.InputStreamChannelFactory;
+import sune.app.mediadown.event.DownloadEvent;
 import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.IEventType;
 import sune.app.mediadown.event.Listener;
@@ -39,10 +36,8 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Reflection3;
-import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
-import sune.app.mediadown.util.Web;
-import sune.app.mediadown.util.Web.HeadRequest;
+import sune.app.mediadown.util.Web.GetRequest;
 import sune.app.mediadownloader.drm.event.CheckEventContext;
 import sune.app.mediadownloader.drm.event.DRMBootstrapEvent;
 import sune.app.mediadownloader.drm.event.DownloadEventContext;
@@ -396,31 +391,40 @@ public final class DRMBootstrap {
 		
 		private final TrackerManager manager = new TrackerManager();
 		
-		private final ReadableByteChannel channel(DownloadEventContext<DRMBootstrap> context, URL url,
-				boolean useCompressedStreams) throws Exception {
-			long total = Web.size(new HeadRequest(url, UserAgent.CHROME));
-			return new DownloadByteChannel(context, url.openStream(), total, useCompressedStreams);
-		}
-		
-		private final void download(URL url, Path dest, boolean useCompressedStreams) throws Exception {
-			if(url == null || dest == null)
-				throw new IllegalArgumentException();
-			DownloadTracker tracker = new DownloadTracker(0L, false);
-			tracker.setTrackerManager(manager);
-			DownloadEventContext<DRMBootstrap> context
-				= new DownloadEventContext<DRMBootstrap>(DRMBootstrap.this, url, dest, tracker);
+		private final void download(URI uri, Path destination, boolean useCompressedStreams) throws Exception {
+			Objects.requireNonNull(uri);
+			Objects.requireNonNull(destination);
+			
 			// To be sure, delete the file first, so a fresh copy is downloaded.
-			NIO.deleteFile(dest);
-			NIO.createDir(dest.getParent());
-			try(ReadableByteChannel dbc = channel(context, url, useCompressedStreams);
-				FileChannel         fch = FileChannel.open(dest, CREATE, WRITE)) {
-				// Notify the listener, if needed
-				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, context);
-				// Actually download the file
-				fch.transferFrom(dbc, 0L, Long.MAX_VALUE);
-				// Notify the listener, if needed
-				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
+			NIO.deleteFile(destination);
+			NIO.createDir(destination.getParent());
+			
+			FileDownloader downloader = new FileDownloader(manager);
+			
+			if(useCompressedStreams) {
+				downloader.setResponseChannelFactory(InputStreamChannelFactory.GZIP.ofDefault());
 			}
+			
+			DownloadTracker tracker = new DownloadTracker(-1L, false);
+			downloader.setTracker(tracker);
+			
+			DownloadEventContext<DRMBootstrap> context
+				= new DownloadEventContext<>(DRMBootstrap.this, uri, destination, tracker);
+			
+			downloader.addEventListener(DownloadEvent.BEGIN, (d) -> {
+				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, context);
+			});
+			
+			downloader.addEventListener(DownloadEvent.UPDATE, (pair) -> {
+				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, context);
+			});
+			
+			downloader.addEventListener(DownloadEvent.END, (d) -> {
+				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
+			});
+			
+			GetRequest request = new GetRequest(Utils.url(uri), Shared.USER_AGENT);
+			downloader.start(request, destination, DownloadConfiguration.ofDefault());
 		}
 		
 		private final Path ensurePathInDirectory(Path file, Path dir, boolean resolve) {
@@ -452,7 +456,7 @@ public final class DRMBootstrap {
 			
 			Path localPath = PathSystem.getPath(clazz, "");
 			Updater.checkResources(baseURL, baseDir, DRMConstants.TIMEOUT, checkListener(), checker,
-				(url, file) -> download(Utils.url(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
+				(url, file) -> download(Utils.uri(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
 				(file, webDir) -> Utils.urlConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
 				(file) -> ensurePathInDirectory(file, baseDir, true),
 				(entryLoc, entryWeb) -> {
@@ -479,64 +483,6 @@ public final class DRMBootstrap {
 				@Override public void end() {}
 				@Override public FileCheckListener fileCheckListener() { return null; /* Not used */ }
 			};
-		}
-		
-		private final class DownloadByteChannel implements ReadableByteChannel {
-			
-			// The listener to which pass the information
-			private final DownloadEventContext<DRMBootstrap> context;
-			private final ReadableByteChannel channel;
-			
-			public DownloadByteChannel(DownloadEventContext<DRMBootstrap> context, InputStream stream, long total,
-					boolean useCompressedStreams) throws IOException {
-				this.context = context;
-				this.context.tracker().updateTotal(total);
-				this.channel = Channels.newChannel(newInputStream(stream, useCompressedStreams));
-			}
-			
-			private final InputStream newInputStream(InputStream stream, boolean useCompressedStreams)
-					throws IOException {
-				return useCompressedStreams ? new GZIPInputStream(new UIS(stream)) : new UIS(stream);
-			}
-			
-			@Override
-			public boolean isOpen() {
-				return channel.isOpen();
-			}
-			
-			@Override
-			public void close() throws IOException {
-				channel.close();
-			}
-			
-			@Override
-			public int read(ByteBuffer dst) throws IOException {
-				return channel.read(dst);
-			}
-			
-			// Underlying input stream implementation
-			private final class UIS extends InputStream {
-				
-				private final InputStream stream;
-				
-				public UIS(InputStream stream) {
-					this.stream = stream;
-				}
-				
-				@Override
-				public int read() throws IOException {
-					return stream.read();
-				}
-				
-				@Override
-				public int read(byte[] buf, int off, int len) throws IOException {
-					// Call the underlying method
-					int read = stream.read(buf, off, len);
-					context.tracker().update(read);
-					eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, context);
-					return read;
-				}
-			}
 		}
 	}
 }
