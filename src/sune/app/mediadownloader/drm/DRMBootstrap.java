@@ -32,7 +32,6 @@ import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.update.CheckListener;
 import sune.app.mediadown.update.FileCheckListener;
 import sune.app.mediadown.update.FileChecker;
-import sune.app.mediadown.update.FileDownloadListener;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
 import sune.app.mediadown.update.Version;
@@ -479,7 +478,6 @@ public final class DRMBootstrap {
 				@Override public void begin() {}
 				@Override public void end() {}
 				@Override public FileCheckListener fileCheckListener() { return null; /* Not used */ }
-				@Override public FileDownloadListener fileDownloadListener() { return null; /* Not used */ }
 			};
 		}
 		
