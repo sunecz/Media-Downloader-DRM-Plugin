@@ -21,8 +21,10 @@ import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.download.InputStreamChannelFactory;
 import sune.app.mediadown.event.DownloadEvent;
+import sune.app.mediadown.event.Event;
+import sune.app.mediadown.event.EventBindable;
+import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
-import sune.app.mediadown.event.IEventType;
 import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.tracker.DownloadTracker;
 import sune.app.mediadown.event.tracker.TrackerManager;
@@ -49,7 +51,7 @@ import sune.util.load.Libraries.Library;
 import sune.util.load.Libraries.LibraryLoadListener;
 import sune.util.load.ModuleLoader;
 
-public final class DRMBootstrap {
+public final class DRMBootstrap implements EventBindable<EventType> {
 	
 	private final List<Library> libraries = new ArrayList<>();
 	private final String pathPrefixLib = "lib/drm/";
@@ -62,7 +64,7 @@ public final class DRMBootstrap {
 	private final boolean generateHashLists;
 	private final boolean downloadWidevineCDM;
 	
-	private final DRMEventRegistry eventRegistry = new DRMEventRegistry();
+	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
 	private final AtomicReference<Exception> exception = new AtomicReference<>();
 	
 	private Class<?> clazz;
@@ -308,16 +310,18 @@ public final class DRMBootstrap {
 		this.exception.set(exception);
 	}
 	
-	public DRMEventRegistry eventRegistry() {
+	public EventRegistry<EventType> eventRegistry() {
 		return eventRegistry;
 	}
 	
-	public final <T> void addEventListener(EventType<? extends IEventType, T> type, Listener<T> listener) {
-		eventRegistry.add(type, listener);
+	@Override
+	public <V> void addEventListener(Event<? extends EventType, V> event, Listener<V> listener) {
+		eventRegistry.add(event, listener);
 	}
 	
-	public final <T> void removeEventListener(EventType<? extends IEventType, T> type, Listener<T> listener) {
-		eventRegistry.remove(type, listener);
+	@Override
+	public <V> void removeEventListener(Event<? extends EventType, V> event, Listener<V> listener) {
+		eventRegistry.remove(event, listener);
 	}
 	
 	public boolean debug() {

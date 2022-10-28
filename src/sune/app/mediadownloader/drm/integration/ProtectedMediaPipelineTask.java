@@ -13,8 +13,9 @@ import java.util.function.Consumer;
 
 import sune.api.process.Processes;
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.event.Event;
+import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
-import sune.app.mediadown.event.IEventType;
 import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.PipelineEvent;
 import sune.app.mediadown.event.tracker.SimpleTracker;
@@ -24,7 +25,6 @@ import sune.app.mediadown.language.Translation;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.DownloadPipelineResult;
 import sune.app.mediadown.pipeline.Pipeline;
-import sune.app.mediadown.pipeline.Pipeline.PipelineEventRegistry;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.pipeline.PipelineTaskRegistry.PipelineTaskInputData;
 import sune.app.mediadown.util.MathUtils;
@@ -38,7 +38,6 @@ import sune.app.mediadownloader.drm.DRMConfiguration;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMEngine;
 import sune.app.mediadownloader.drm.DRMEngines;
-import sune.app.mediadownloader.drm.DRMEventRegistry;
 import sune.app.mediadownloader.drm.DRMInstance;
 import sune.app.mediadownloader.drm.WidevineCDM;
 import sune.app.mediadownloader.drm.event.AnalyzeEvent;
@@ -103,7 +102,8 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			listenerError.call(new Pair<>(pipeline, exception));
 	}
 	
-	private final void addDefaultBootstrapListeners(DRMEventRegistry eventRegistry, Pipeline pipeline, Translation translation) {
+	private final void addDefaultBootstrapListeners(EventRegistry<EventType> eventRegistry, Pipeline pipeline,
+			Translation translation) {
 		eventRegistry.add(WidevineCDMEvent.BEGIN, (o) -> {
 			tracker.setText(translation.getSingle("widevine.begin"));
 			eventRegistryUpdate(pipeline);
@@ -247,16 +247,16 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	}
 	
 	@SuppressWarnings("unchecked")
-	private static final Listener<Object> eventRegitryUpdateListener(PipelineEventRegistry eventRegistry) {
-		return (Listener<Object>) eventRegistry.getListeners(PipelineEvent.UPDATE).get(0);
+	private static final Listener<Object> eventRegitryUpdateListener(EventRegistry<EventType> eventRegistry) {
+		return (Listener<Object>) eventRegistry.listenersOfEvent(PipelineEvent.UPDATE).get(0);
 	}
 	
 	@SuppressWarnings("unchecked")
-	private static final Listener<Object> eventRegitryErrorListener(PipelineEventRegistry eventRegistry) {
-		return (Listener<Object>) eventRegistry.getListeners(PipelineEvent.ERROR).get(0);
+	private static final Listener<Object> eventRegitryErrorListener(EventRegistry<EventType> eventRegistry) {
+		return (Listener<Object>) eventRegistry.listenersOfEvent(PipelineEvent.ERROR).get(0);
 	}
 	
-	private final void runDownloadWidevineCDMProcessAndWait(DRMEventRegistry dummyEventRegistry) throws Exception {
+	private final void runDownloadWidevineCDMProcessAndWait(EventRegistry<EventType> dummyEventRegistry) throws Exception {
 		List<String> args = new ArrayList<>();
 		if(!IntegrationUtils.runInJAR()) {
 			args.add("-Dfile.encoding=UTF-8");
@@ -301,7 +301,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			manager = new TrackerManager();
 			tracker = new TextProgressSimpleTracker();
 			manager.setTracker(tracker);
-			PipelineEventRegistry eventRegistry = pipeline.getEventRegistry();
+			EventRegistry<EventType> eventRegistry = pipeline.getEventRegistry();
 			listenerUpdate = eventRegitryUpdateListener(eventRegistry);
 			listenerError = eventRegitryErrorListener(eventRegistry);
 			// Obtain plugins translation
@@ -310,7 +310,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			if(!WidevineCDM.isInstalled()) {
 				// Run the download process in a new separate process since we can initialize
 				// the JCEF/CEF system only once and that must be with Widevine CDM ready.
-				DRMEventRegistry dummyEventRegistry = new DRMEventRegistry();
+				EventRegistry<EventType> dummyEventRegistry = new EventRegistry<>();
 				addDefaultBootstrapListeners(dummyEventRegistry, pipeline, translation);
 				runDownloadWidevineCDMProcessAndWait(dummyEventRegistry);
 			}
@@ -412,10 +412,10 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	
 	private static final class DownloadWidevineCDMProcessLineParser implements Consumer<String> {
 		
-		private static Map<String, EventType<?, ?>> eventTypes;
+		private static Map<String, Event<?, ?>> eventTypes;
 		
 		private final String prefix = DRMBootstrapCLI.linePrefix();
-		private final DRMEventRegistry eventRegistry;
+		private final EventRegistry<EventType> eventRegistry;
 		
 		private boolean isAccumulating;
 		private StringBuilder accumulator;
@@ -423,23 +423,23 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		private TrackerManager trackerManager;
 		private DummyDownloadTracker downloadTracker;
 		
-		private DownloadWidevineCDMProcessLineParser(DRMEventRegistry eventRegistry) {
+		private DownloadWidevineCDMProcessLineParser(EventRegistry<EventType> eventRegistry) {
 			this.eventRegistry = eventRegistry;
 		}
 		
 		@SuppressWarnings("unchecked")
-		private static final <T extends IEventType, P> EventType<T, P> nameToEventType(Class<T> clazz, String name) {
+		private static final <T extends EventType, P> Event<T, P> nameToEventType(Class<T> clazz, String name) {
 			if(eventTypes == null) {
 				eventTypes = new HashMap<>();
 				for(Field field : clazz.getDeclaredFields()) {
 					try {
-						eventTypes.put(field.getName(), (EventType<?, ?>) field.get(null));
+						eventTypes.put(field.getName(), (Event<?, ?>) field.get(null));
 					} catch(Exception ex) {
 						// Ignore
 					}
 				}
 			}
-			return (EventType<T, P>) eventTypes.get(name);
+			return (Event<T, P>) eventTypes.get(name);
 		}
 		
 		@Override
@@ -457,7 +457,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			if(index >= 0) {
 				// Additional arguments present
 				String name = line.substring(0, index);
-				EventType<WidevineCDMEvent, ?> eventType = nameToEventType(WidevineCDMEvent.class, name);
+				Event<WidevineCDMEvent, ?> eventType = nameToEventType(WidevineCDMEvent.class, name);
 				if(eventType == WidevineCDMEvent.ERROR) {
 					isAccumulating = true;
 					if(accumulator == null) {

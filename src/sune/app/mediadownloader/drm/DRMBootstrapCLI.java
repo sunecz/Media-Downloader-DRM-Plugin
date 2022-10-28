@@ -11,25 +11,25 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
+import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventType;
-import sune.app.mediadown.event.IEventType;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 
 public final class DRMBootstrapCLI {
 	
 	private static final String LINE_PREFIX = "[DRMBootstrapCLI]";
-	private static Map<EventType<?, ?>, String> eventTypeNames;
+	private static Map<Event<?, ?>, String> eventTypeNames;
 	
 	// Forbid anyone to create an instance of this class
 	private DRMBootstrapCLI() {
 	}
 	
-	private static final <T extends IEventType> String eventTypeName(Class<T> clazz, EventType<T, ?> value) {
+	private static final <T extends EventType> String eventTypeName(Class<T> clazz, Event<T, ?> value) {
 		if(eventTypeNames == null) {
 			eventTypeNames = new HashMap<>();
 			for(Field field : clazz.getDeclaredFields()) {
 				try {
-					eventTypeNames.put((EventType<?, ?>) field.get(null), field.getName());
+					eventTypeNames.put((Event<?, ?>) field.get(null), field.getName());
 				} catch(Exception ex) {
 					// Ignore
 				}
@@ -38,7 +38,7 @@ public final class DRMBootstrapCLI {
 		return eventTypeNames.get(value);
 	}
 	
-	private static final <P> void addListener(DRMInstance instance, String prefix, EventType<WidevineCDMEvent, P> type,
+	private static final <P> void addListener(DRMInstance instance, String prefix, Event<WidevineCDMEvent, P> type,
 			Map<String, Function<P, Object>> map) {
 		String name = eventTypeName(WidevineCDMEvent.class, type);
 		instance.addEventListener(type, (o) -> {

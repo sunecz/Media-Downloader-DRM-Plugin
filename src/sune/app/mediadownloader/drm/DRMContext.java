@@ -2,6 +2,8 @@ package sune.app.mediadownloader.drm;
 
 import java.util.UUID;
 
+import sune.app.mediadown.event.EventRegistry;
+import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
@@ -22,7 +24,7 @@ public interface DRMContext {
 	void playbackResume(PlaybackData data);
 	void playbackReady(PlaybackData data);
 	
-	DRMEventRegistry eventRegistry();
+	EventRegistry<EventType> eventRegistry();
 	TrackerManager trackerManager();
 	DRMBrowserContext browserContext();
 	Playback playback();

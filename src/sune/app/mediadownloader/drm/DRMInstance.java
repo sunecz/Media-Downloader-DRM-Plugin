@@ -13,8 +13,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
+import sune.app.mediadown.event.Event;
+import sune.app.mediadown.event.EventBindable;
+import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
-import sune.app.mediadown.event.IEventType;
 import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.PipelineEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
@@ -39,7 +41,7 @@ import sune.app.mediadownloader.drm.util.ProcessManager;
 import sune.app.mediadownloader.drm.util.StateMutex;
 import sune.util.ssdf2.SSDCollection;
 
-public final class DRMInstance {
+public final class DRMInstance implements EventBindable<EventType> {
 	
 	private static final Logger logger = DRMLog.get();
 	private static final int DEFAULT_BROWSER_WIDTH = 800;
@@ -68,7 +70,7 @@ public final class DRMInstance {
 	private volatile ProcessManager processManager;
 	private volatile AudioDevice audioDevice;
 	
-	private final DRMEventRegistry eventRegistry = new DRMEventRegistry();
+	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
 	private final TrackerManager manager = new TrackerManager();
 	
 	private final DRMConfiguration configuration;
@@ -402,15 +404,17 @@ public final class DRMInstance {
 		}
 	}
 	
-	public final <T> void addEventListener(EventType<? extends IEventType, T> type, Listener<T> listener) {
-		eventRegistry.add(type, listener);
+	@Override
+	public <V> void addEventListener(Event<? extends EventType, V> event, Listener<V> listener) {
+		eventRegistry.add(event, listener);
 	}
 	
-	public final <T> void removeEventListener(EventType<? extends IEventType, T> type, Listener<T> listener) {
-		eventRegistry.remove(type, listener);
+	@Override
+	public <V> void removeEventListener(Event<? extends EventType, V> event, Listener<V> listener) {
+		eventRegistry.remove(event, listener);
 	}
 	
-	public final DRMEventRegistry eventRegistry() {
+	public final EventRegistry<EventType> eventRegistry() {
 		return eventRegistry;
 	}
 	
@@ -502,7 +506,7 @@ public final class DRMInstance {
 		}
 		
 		@Override
-		public DRMEventRegistry eventRegistry() {
+		public EventRegistry<EventType> eventRegistry() {
 			return eventRegistry;
 		}
 		
