@@ -4,6 +4,8 @@ import sune.app.mediadown.event.tracker.SimpleTracker;
 
 public class TimeUpdatableTracker extends SimpleTracker {
 	
+	// TODO: Refactor
+	
 	protected double currentTime;
 	protected double totalTime;
 	
@@ -13,12 +15,11 @@ public class TimeUpdatableTracker extends SimpleTracker {
 	
 	public void update(double currentTime) {
 		this.currentTime = currentTime;
-		// notify the tracker manager
-		manager.update();
+		update();
 	}
 	
 	@Override
-	public double getProgress() {
+	public double progress() {
 		return currentTime / totalTime;
 	}
 	

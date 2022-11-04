@@ -48,8 +48,7 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(-1.0, PostProcessOperation.FIX_AUDIO);
-		trackerManager.setTracker(tracker);
-		trackerManager.update();
+		trackerManager.tracker(tracker);
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 			StringBuilder builder = new StringBuilder();
@@ -117,8 +116,7 @@ public final class SimpleAudioProcessor implements AudioProcessor {
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_AUDIO);
-		trackerManager.setTracker(tracker);
-		trackerManager.update();
+		trackerManager.tracker(tracker);
 		
 		String args = "-c:a pcm_s16le";
 		int sampleRate = recordInfo.sampleRate();

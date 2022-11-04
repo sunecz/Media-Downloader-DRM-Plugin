@@ -32,7 +32,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, (context) -> {
 			receiver.receive(format("Downloading %s... %.2f%%", context.path().getFileName().toString(),
-			                        context.tracker().getProgress() * 100.0));
+			                        context.tracker().progress() * 100.0));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, (context) -> {
 			receiver.receive(format("Download done"));

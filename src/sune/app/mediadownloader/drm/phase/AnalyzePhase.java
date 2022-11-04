@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
@@ -64,8 +65,8 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 			if(context.configuration().detectFPS()) {
 				tracker = new AnalyzeTracker(analyzeDuration);
 				TrackerManager manager = context.trackerManager();
-				manager.setTracker(tracker);
-				manager.setUpdateListener(() -> context.eventRegistry().call(AnalyzeEvent.UPDATE, new Pair<>(context, manager)));
+				manager.tracker(tracker);
+				manager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(AnalyzeEvent.UPDATE, new Pair<>(context, manager)));
 				context.playbackEventsHandler(new AnalyzePhaseHandler());
 				context.playback().play();
 				mtxDone.await();

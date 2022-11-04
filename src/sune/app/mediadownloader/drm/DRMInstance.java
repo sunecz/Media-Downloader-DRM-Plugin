@@ -89,7 +89,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 		this.url = url;
 		this.configuration = configuration;
 		this.context = new Context();
-		manager.setTracker(new WaitTracker());
+		manager.tracker(new WaitTracker());
 		instances.add(this);
 	}
 	

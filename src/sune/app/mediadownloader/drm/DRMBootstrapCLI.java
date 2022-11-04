@@ -79,7 +79,7 @@ public final class DRMBootstrapCLI {
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.BEGIN_REQUEST, Map.of());
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.END_REQUEST, Map.of());
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.BEGIN_DOWNLOAD, Map.of());
-		addListener(instance, LINE_PREFIX, WidevineCDMEvent.UPDATE_DOWNLOAD, Map.of("%f", (o) -> o.b.getTracker().getProgress() * 100.0));
+		addListener(instance, LINE_PREFIX, WidevineCDMEvent.UPDATE_DOWNLOAD, Map.of("%f", (o) -> o.b.tracker().progress() * 100.0));
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.END_DOWNLOAD, Map.of());
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.BEGIN_EXTRACT, Map.of());
 		addListener(instance, LINE_PREFIX, WidevineCDMEvent.END_EXTRACT, Map.of());

@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
@@ -175,8 +176,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		tracker = new RecordTracker(duration);
 		TrackerManager manager = context.trackerManager();
-		manager.setTracker(tracker);
-		manager.setUpdateListener(() -> context.eventRegistry().call(RecordEvent.UPDATE, new Pair<>(context, manager)));
+		manager.tracker(tracker);
+		manager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(RecordEvent.UPDATE, new Pair<>(context, manager)));
 		process = context.processManager().ffmpeg(this::recordUpdated);
 		String windowTitle = context.browserContext().title();
 		String audioDeviceName = context.audioDeviceName();

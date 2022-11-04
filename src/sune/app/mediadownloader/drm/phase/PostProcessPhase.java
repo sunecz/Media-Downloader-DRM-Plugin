@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 import org.slf4j.Logger;
 
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
@@ -64,7 +65,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 	
 	private final void postProcess() throws Exception {
 		TrackerManager trackerManager = context.trackerManager();
-		trackerManager.setUpdateListener(() -> context.eventRegistry().call(PostProcessEvent.UPDATE, new Pair<>(context, trackerManager)));
+		trackerManager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(PostProcessEvent.UPDATE, new Pair<>(context, trackerManager)));
 		
 		if(logger.isDebugEnabled())
 			logger.debug("Post-processing...");
@@ -94,8 +95,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.MERGE);
-		trackerManager.setTracker(tracker);
-		trackerManager.update();
+		trackerManager.tracker(tracker);
 		
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {

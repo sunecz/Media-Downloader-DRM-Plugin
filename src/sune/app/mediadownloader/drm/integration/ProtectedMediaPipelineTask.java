@@ -134,7 +134,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		});
 		eventRegistry.add(WidevineCDMEvent.UPDATE_DOWNLOAD, (o) -> {
 			tracker.setText(translation.getSingle("widevine.update_download",
-				"percent", MathUtils.round(o.b.getTracker().getProgress() * 100.0, 2)));
+				"percent", MathUtils.round(o.b.tracker().progress() * 100.0, 2)));
 			eventRegistryUpdate(pipeline);
 		});
 		eventRegistry.add(WidevineCDMEvent.END_DOWNLOAD, (o) -> {
@@ -170,9 +170,9 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			eventRegistryUpdate(pipeline);
 		});
 		instance.addEventListener(AnalyzeEvent.UPDATE, (o) -> {
-			AnalyzeTracker phaseTracker = (AnalyzeTracker) o.b.getTracker();
+			AnalyzeTracker phaseTracker = (AnalyzeTracker) o.b.tracker();
 			String progress = translation.getSingle("phase.analyze.update",
-				"percent",      MathUtils.round(phaseTracker.getProgress() * 100.0, 2),
+				"percent",      MathUtils.round(phaseTracker.progress() * 100.0, 2),
 				"current_time", MathUtils.round(phaseTracker.getCurrentTime(), 2),
 				"total_time",   MathUtils.round(phaseTracker.getTotalTime(), 2));
 			tracker.setText(progress);
@@ -192,9 +192,9 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			eventRegistryUpdate(pipeline);
 		});
 		instance.addEventListener(RecordEvent.UPDATE, (o) -> {
-			RecordTracker phaseTracker = (RecordTracker) o.b.getTracker();
+			RecordTracker phaseTracker = (RecordTracker) o.b.tracker();
 			String progress = translation.getSingle("phase.record.update",
-				"percent",      MathUtils.round(phaseTracker.getProgress() * 100.0, 2),
+				"percent",      MathUtils.round(phaseTracker.progress() * 100.0, 2),
 				"current_time", MathUtils.round(phaseTracker.getCurrentTime(), 2),
 				"total_time",   MathUtils.round(phaseTracker.getTotalTime(), 2));
 			tracker.setText(progress);
@@ -214,14 +214,14 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			eventRegistryUpdate(pipeline);
 		});
 		instance.addEventListener(PostProcessEvent.UPDATE, (o) -> {
-			Tracker phaseTracker = o.b.getTracker();
-			String progress = phaseTracker.getTextProgress();
+			Tracker phaseTracker = o.b.tracker();
+			String progress = phaseTracker.textProgress();
 			if(phaseTracker instanceof PostProcessTracker) {
 				PostProcessTracker processTracker = (PostProcessTracker) phaseTracker;
 				if(processTracker.getTotalTime() > 0.0) {
 					progress = translation.getSingle("phase.post_process.update_percent",
 						"name",         translation.getSingle("phase.post_process.enum." + processTracker.name()),
-						"percent",      MathUtils.round(processTracker.getProgress() * 100.0, 2),
+						"percent",      MathUtils.round(processTracker.progress() * 100.0, 2),
 						"current_time", MathUtils.round(processTracker.getCurrentTime(), 2),
 						"total_time",   MathUtils.round(processTracker.getTotalTime(), 2));
 				} else {
@@ -300,7 +300,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			// Prepare events-related variables
 			manager = new TrackerManager();
 			tracker = new TextProgressSimpleTracker();
-			manager.setTracker(tracker);
+			manager.tracker(tracker);
 			EventRegistry<EventType> eventRegistry = pipeline.getEventRegistry();
 			listenerUpdate = eventRegitryUpdateListener(eventRegistry);
 			listenerError = eventRegitryErrorListener(eventRegistry);
@@ -400,12 +400,12 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		}
 		
 		@Override
-		public double getProgress() {
+		public double progress() {
 			return Double.NaN;
 		}
 		
 		@Override
-		public String getTextProgress() {
+		public String textProgress() {
 			return text;
 		}
 	}
@@ -470,7 +470,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 					if(downloadTracker == null) {
 						trackerManager = new TrackerManager();
 						downloadTracker = new DummyDownloadTracker();
-						trackerManager.setTracker(downloadTracker);
+						trackerManager.tracker(downloadTracker);
 					}
 					downloadTracker.setProgress(percent);
 					eventRegistry.call(WidevineCDMEvent.UPDATE_DOWNLOAD, new Pair<>(null, trackerManager));
@@ -490,7 +490,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			}
 			
 			@Override
-			public double getProgress() {
+			public double progress() {
 				return progress;
 			}
 		}

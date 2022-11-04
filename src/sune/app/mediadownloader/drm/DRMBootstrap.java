@@ -20,6 +20,7 @@ import sune.app.mediadown.Shared;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.download.InputStreamChannelFactory;
+import sune.app.mediadown.event.CheckEvent;
 import sune.app.mediadown.event.DownloadEvent;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventBindable;
@@ -28,8 +29,6 @@ import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.tracker.DownloadTracker;
 import sune.app.mediadown.event.tracker.TrackerManager;
-import sune.app.mediadown.update.CheckListener;
-import sune.app.mediadown.update.FileCheckListener;
 import sune.app.mediadown.update.FileChecker;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
@@ -138,7 +137,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 	private final FileChecker localFileChecker(String relativePath) {
 		Path currentDir = PathSystem.getPath(clazz, "");
 		Path dir = PathSystem.getPath(clazz, relativePath);
-		return new FileChecker.PrefixedFileChecker(dir, null, currentDir);
+		return new FileChecker.PrefixedFileChecker(dir, currentDir);
 	}
 	
 	private final FileChecker libFileChecker(String version) {
@@ -182,10 +181,8 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 	}
 	
 	private final void generateHashList(FileChecker checker, Path output, boolean checkRequirements)
-			throws IOException {
-		if(!checker.generate((path) -> true, checkRequirements, (path) -> true)) {
-			throw new IllegalStateException("Unable to generate hash list.");
-		}
+			throws Exception {
+		checker.generate((path) -> true, checkRequirements, (path) -> true);
 		// Save the list of entries to a file
 		NIO.save(output, checker.toString());
 	}
@@ -395,7 +392,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		
 		private final TrackerManager manager = new TrackerManager();
 		
-		private final void download(URI uri, Path destination, boolean useCompressedStreams) throws Exception {
+		private final Path download(URI uri, Path destination, boolean useCompressedStreams) throws Exception {
 			Objects.requireNonNull(uri);
 			Objects.requireNonNull(destination);
 			
@@ -409,7 +406,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 				downloader.setResponseChannelFactory(InputStreamChannelFactory.GZIP.ofDefault());
 			}
 			
-			DownloadTracker tracker = new DownloadTracker(-1L, false);
+			DownloadTracker tracker = new DownloadTracker();
 			downloader.setTracker(tracker);
 			
 			DownloadEventContext<DRMBootstrap> context
@@ -429,6 +426,8 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			
 			GetRequest request = new GetRequest(Utils.url(uri), Shared.USER_AGENT);
 			downloader.start(request, destination, DownloadConfiguration.ofDefault());
+			
+			return destination;
 		}
 		
 		private final Path ensurePathInDirectory(Path file, Path dir, boolean resolve) {
@@ -459,7 +458,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			}
 			
 			Path localPath = PathSystem.getPath(clazz, "");
-			Updater.checkResources(baseURL, baseDir, DRMConstants.TIMEOUT, checkListener(), checker,
+			Updater updater = Updater.ofResources(baseURL, baseDir, DRMConstants.TIMEOUT, checker,
 				(url, file) -> download(Utils.uri(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
 				(file, webDir) -> Utils.urlConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
 				(file) -> ensurePathInDirectory(file, baseDir, true),
@@ -473,20 +472,12 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 									&& !entryLoc.getHash().equals(entryWeb.getHash()))
 								|| !NIO.exists(entryLoc.getPath()));
 				}, null);
-		}
-		
-		private final CheckListener checkListener() {
-			return new CheckListener() {
-				
-				@Override
-				public void compare(String name) {
-					eventRegistry.call(DRMBootstrapEvent.RESOURCE_CHECK, new CheckEventContext<>(DRMBootstrap.this, name));
-				}
-				
-				@Override public void begin() {}
-				@Override public void end() {}
-				@Override public FileCheckListener fileCheckListener() { return null; /* Not used */ }
-			};
+			
+			updater.addEventListener(CheckEvent.COMPARE, (name) -> {
+				eventRegistry.call(DRMBootstrapEvent.RESOURCE_CHECK, new CheckEventContext<>(DRMBootstrap.this, name));
+			});
+			
+			updater.check();
 		}
 	}
 }

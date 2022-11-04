@@ -48,8 +48,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(-1.0, PostProcessOperation.FIX_VIDEO);
-		trackerManager.setTracker(tracker);
-		trackerManager.update();
+		trackerManager.tracker(tracker);
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 			StringBuilder builder = new StringBuilder();
@@ -117,8 +116,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_VIDEO);
-		trackerManager.setTracker(tracker);
-		trackerManager.update();
+		trackerManager.tracker(tracker);
 		
 		String args = "-c:v libx264rgb -preset ultrafast -tune film -qp 0 -pix_fmt rgb24 -g 1";
 		double frameRate = recordInfo.frameRate();
