@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -168,6 +169,9 @@ public final class DRMUtils {
 		private SSDNode[] results;
 		private int resultIndex;
 		private Consumer<SSDNode>[] callbacks;
+		
+		private Thread thread;
+		private final StateMutex mtxDone = new StateMutex();
 		private volatile boolean waiting;
 		
 		@SafeVarargs
@@ -192,10 +196,15 @@ public final class DRMUtils {
 		
 		public JSRequest send(CefFrame frame) {
 			if(jsCode == null) return this; // Noop
+			
+			// If already sent and is waiting, terminate it first
+			interrupt();
+			
 			String codeQuery = "window.cefQuery({request:'" + requestName + ".'+i+':'+JSON.stringify({'data':d})});";
 			String code = "(new Promise((_rs,_rj)=>{const ret=function(i,d){" + codeQuery + "_rs(0)};" + jsCode + "}))";
 			frame.executeJavaScript(code, null, 0);
-			(Threads.newThreadUnmanaged(() -> {
+			
+			(thread = Threads.newThreadUnmanaged(() -> {
 				synchronized(mtx) {
 					try {
 						waiting = true;
@@ -205,9 +214,11 @@ public final class DRMUtils {
 						// Ignore, nothing we can do
 					} finally {
 						waiting = false;
+						mtxDone.unlock();
 					}
 				}
 			})).start();
+			
 			return this;
 		}
 		
@@ -221,6 +232,13 @@ public final class DRMUtils {
 				this.resultIndex = index;
 				mtx.notifyAll();
 				if(!waiting) callback(resultIndex);
+			}
+		}
+		
+		public void interrupt() {
+			if(waiting) {
+				thread.interrupt();
+				mtxDone.await();
 			}
 		}
 		
@@ -280,6 +298,17 @@ public final class DRMUtils {
 		public PromiseBase<T> then(Consumer<T> resolved) {
 			return then(resolved, null);
 		}
+		
+		@Override
+		public T get() throws InterruptedException, ExecutionException {
+			Pair<Byte, T> result = first.get();
+			return result != null ? result.b : null;
+		}
+		
+		@Override
+		public void await() throws InterruptedException, ExecutionException {
+			get();
+		}
 	}
 	
 	public static interface Promise<T> {
@@ -288,6 +317,8 @@ public final class DRMUtils {
 		void reject(T arg);
 		Promise<T> then(Consumer<T> resolved, Consumer<T> rejected);
 		Promise<T> then(Consumer<T> resolved);
+		T get() throws InterruptedException, ExecutionException;
+		void await() throws InterruptedException, ExecutionException;
 		
 		public static final class OfRef<T> extends PromiseBase<T> {
 			

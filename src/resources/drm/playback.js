@@ -7,7 +7,7 @@
 		_videoPlayer: function(video_id) { return document.querySelector('video[data-vid="' + video_id + '"]'); },
 		_isPlaying: function(video) { return video.readyState > 2 && !video.paused && !video.ended && !video.seeking; },
 		// Standard methods
-		play: function(video_id) {
+		play: function(video_id, ret) {
 			const video = this._videoPlayer(video_id);
 
 			const playing = ((e) => {
@@ -21,7 +21,7 @@
 				video.play();
 			});
 		},
-		pause: function(video_id) {
+		pause: function(video_id, ret) {
 			const video = this._videoPlayer(video_id);
 
 			const paused = ((e) => {
@@ -90,6 +90,11 @@
 				video.volume = volume;
 				ret(0, {});
 			});
+		},
+		isPlaying: function(video_id, ret) {
+			const video = this._videoPlayer(video_id);
+			const is_playing = this._isPlaying(video);
+			ret(0, { is_playing: is_playing });
 		},
 	};
 

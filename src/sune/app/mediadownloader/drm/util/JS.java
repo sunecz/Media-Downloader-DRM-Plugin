@@ -178,5 +178,15 @@ public final class JS {
 			browser.addJSRequest(frame, JS.Request.of("playback-volume", code, (data) -> promise.resolve()));
 			return promise;
 		}
+		
+		public static final Promise.OfRef<Boolean> isPlaying(DRMBrowser browser, CefFrame frame, int videoId) {
+			Promise.OfRef<Boolean> promise = new Promise.OfRef<>();
+			String code = DRMUtils.format("MediaDownloader.DRM.Playback.isPlaying('%1$s', ret);", videoId);
+			browser.addJSRequest(frame, JS.Request.of("playback-isPlaying", code, (data) -> {
+				boolean isPlaying = ((SSDCollection) data).getDirectBoolean("is_playing", false);
+				promise.resolve(isPlaying);
+			}));
+			return promise;
+		}
 	}
 }

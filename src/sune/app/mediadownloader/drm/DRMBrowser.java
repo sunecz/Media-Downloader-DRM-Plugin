@@ -9,7 +9,6 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
 import javax.swing.JFrame;
-import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 import org.cef.browser.CefBrowser;
@@ -36,9 +35,10 @@ public final class DRMBrowser extends JFrame {
 	private volatile boolean isClosed;
 	private final StateMutex mtxClose = new StateMutex();
 	
-	DRMBrowser(DRMContext drmContext, DRMClient drmClient, int width, int height) {
+	DRMBrowser(DRMContext drmContext, DRMClient drmClient, String url, int width, int height) {
 		client = drmClient;
-		browser = client.cefClient().createBrowser("about:blank", false, false, null);
+		browser = client.cefClient().createBrowser(url, false, false, null);
+		
 		// Add the broswer component to the window
 		Component component = browser.getUIComponent();
 		component.setPreferredSize(new Dimension(width, height));
@@ -49,9 +49,8 @@ public final class DRMBrowser extends JFrame {
 			@Override public void componentResized(ComponentEvent e) { component.setFocusable(false); }
 			@Override public void componentShown  (ComponentEvent e) { component.setFocusable(false); }
 		});
-		JPanel contentPanel = new JPanel(new BorderLayout());
-		contentPanel.add(component, BorderLayout.CENTER);
-		getContentPane().add(contentPanel, BorderLayout.CENTER);
+		getContentPane().add(component, BorderLayout.CENTER);
+		
 		addComponentListener(new ComponentAdapter() {
 			
 			@Override
@@ -98,23 +97,30 @@ public final class DRMBrowser extends JFrame {
 			@Override
 			public void windowClosing(WindowEvent e) {
 				super.windowClosing(e);
+				
+				boolean unlock = isClosed;
 				try {
-					if(browser == null) {
-						isClosed = true;
-						dispose();
-					} else {
-						if(isClosed)
+					if(browser != null) {
+						if(isClosed) {
 							browser.setCloseAllowed();
+						}
+						
 						browser.close(isClosed);
-						if(isClosed)
-							dispose();
-						isClosed = true;
 					}
+					
+					if(browser == null || isClosed) {
+						dispose();
+					}
+					
+					isClosed = true;
 				} finally {
-					mtxClose.unlock();
+					if(unlock) {
+						mtxClose.unlock();
+					}
 				}
 			}
 		});
+		
 		setLocationRelativeTo(null);
 		setLocationByPlatform(false);
 		setResizable(false);
@@ -134,26 +140,58 @@ public final class DRMBrowser extends JFrame {
 		toBack();
 	}
 	
-	private final void close() {
+	private final void loadBlankPage() {
 		// This solves an issue with infrequent seemingly random crashes of libcef.dll
 		// For more info see: https://www.magpcss.org/ceforum/viewtopic.php?f=6&t=13044
-		
 		String urlToLoad = "about:blank";
 		client.loadNotifier().enable(urlToLoad);
 		
 		if(logger.isDebugEnabled())
-			logger.debug("Loading \"{}\" before closing to avoid crashes...", urlToLoad);
+			logger.debug("Loading the blank page...", urlToLoad);
 		
 		load(urlToLoad);
 		client.loadNotifier().await(urlToLoad);
 
 		if(logger.isDebugEnabled())
-			logger.debug("Loaded \"{}\". Dispatching closing event...", urlToLoad);
+			logger.debug("Loaded the blank page.", urlToLoad);
+	}
+	
+	private final void close() {
+		if(logger.isDebugEnabled())
+			logger.debug("Closing all active JS requests...");
+		
+		client.closeJSRequests();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Active JS requests closed.");
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Loading the blank page before closing to avoid crashes...");
+		
+		loadBlankPage();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Blank page loaded. Dispatching closing event...");
 		
 		SwingUtilities.invokeLater(() -> {
 			dispatchEvent(new WindowEvent(this, WindowEvent.WINDOW_CLOSING));
+			
+			if(logger.isDebugEnabled())
+				logger.debug("Closing event dispatched...");
 		});
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Waiting for closed state...");
+		
 		mtxClose.await();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Browser closed. Disposing client...");
+		
+		client.dispose();
+		
+		if(logger.isDebugEnabled())
+			logger.debug("Client disposed.");
 	}
 	
 	public void addJSRequest(CefFrame frame, JSRequest result) {

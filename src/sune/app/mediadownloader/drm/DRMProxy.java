@@ -1,8 +1,10 @@
 package sune.app.mediadownloader.drm;
 
+import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.IllegalCharsetNameException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 
 import org.littleshoot.proxy.HttpFilters;
 import org.littleshoot.proxy.HttpFiltersAdapter;
@@ -10,6 +12,7 @@ import org.littleshoot.proxy.HttpFiltersSource;
 import org.littleshoot.proxy.HttpProxyServer;
 import org.littleshoot.proxy.HttpProxyServerBootstrap;
 import org.littleshoot.proxy.impl.DefaultHttpProxyServer;
+import org.littleshoot.proxy.mitm.Authority;
 import org.littleshoot.proxy.mitm.CertificateSniffingMitmManager;
 import org.littleshoot.proxy.mitm.RootCertificateException;
 
@@ -27,6 +30,8 @@ import io.netty.handler.codec.http.HttpResponse;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.AttributeKey;
+import sune.app.mediadown.util.NIO;
+import sune.app.mediadown.util.PathSystem;
 
 public class DRMProxy {
 	
@@ -63,16 +68,37 @@ public class DRMProxy {
 		return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buf);
 	}
 	
-	public DRMProxy create() throws RootCertificateException {
+	private static final CertificateSniffingMitmManager newCertificateSniffingMitmManager(Path dir)
+			throws RootCertificateException {
+		String alias = "md-drm-proxy";
+		char[] password = alias.toCharArray();
+		String organization = "Media Downloader";
+		String commonName = organization + ", DRM Plugin proxy";
+		String organizationalUnitName = "Certificate Authority";
+		String certOrganization = organization;
+		String certOrganizationalUnitName = organization + ", proxy for filtering media sources"
+				+ " and various needed content to correctly record a video protected with DRM.";
+		
+		Authority authority = new Authority(dir.toFile(), alias, password, commonName, organization,
+			organizationalUnitName, certOrganization, certOrganizationalUnitName);
+		
+		return new CertificateSniffingMitmManager(authority);
+	}
+	
+	public DRMProxy create() throws RootCertificateException, IOException {
+		Path dir = PathSystem.getPath("resources/drm");
+		NIO.createDir(dir);
+		
 		serverBootstrap = DefaultHttpProxyServer.bootstrap().withPort(port)
-			.withManInTheMiddle(new CertificateSniffingMitmManager())
+			.withManInTheMiddle(newCertificateSniffingMitmManager(dir))
 			.withFiltersSource(new DRMHttpFiltersSource(resolver));
+		
 		return this;
 	}
 	
 	public void start() {
 		if(server != null)
-			throw new IllegalStateException("Proxy is already running");
+			return; // Already running, nothing to do
 		if(serverBootstrap == null)
 			throw new IllegalStateException("Proxy not created yet");
 		server = serverBootstrap.start();
@@ -81,7 +107,7 @@ public class DRMProxy {
 	
 	public void stop() {
 		if(server == null)
-			throw new IllegalStateException("Proxy is not running");
+			return; // Not running, nothing to do
 		server.stop();
 	}
 	

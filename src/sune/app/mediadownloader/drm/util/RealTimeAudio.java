@@ -88,20 +88,9 @@ public class RealTimeAudio {
 			
 			try(BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 				for(String line; (line = reader.readLine()) != null; parseLine(line));
-			} finally {
-				try {
-					if(socket != null) {
-						socket.close();
-					}
-				} catch(IOException ex) {
-					exception = ex;
-				}
 			}
 		} catch(IOException ex) {
 			exception = ex;
-		} finally {
-			socket = null;
-			server = null;
 		}
 	}
 	

@@ -7,7 +7,15 @@
 					general: "DRM"
 				},
 				fields: {
-					debug: "Debug mód"
+					debug: "Debug mód",
+					record: {
+						useMediaFps: "Použít FPS mediálního zdroje, pokud je k dispozici",
+						defaultFps:  "Výchozí FPS"
+					},
+					process: {
+						keepRecordFile:     "Zachovat soubor záznamu",
+						keepTemporaryFiles: "Zachovat dočasné soubory"
+					}
 				}
 			},
 			drm_instance: {

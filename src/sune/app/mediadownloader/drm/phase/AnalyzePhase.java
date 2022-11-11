@@ -1,9 +1,7 @@
 package sune.app.mediadownloader.drm.phase;
 
-import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_BUFFER_SIZE_MS;
 import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_MAX_LATENCY_SAMPLES;
 import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
-import static sune.app.mediadownloader.drm.DRMConstants.MS_IN_SEC;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -11,6 +9,9 @@ import org.slf4j.Logger;
 
 import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
+import sune.app.mediadown.media.Media;
+import sune.app.mediadown.media.MediaType;
+import sune.app.mediadown.media.VideoMediaBase;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
@@ -18,6 +19,7 @@ import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.AnalyzeEvent;
+import sune.app.mediadownloader.drm.integration.DRMPluginConfiguration;
 import sune.app.mediadownloader.drm.tracker.AnalyzeTracker;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
@@ -50,7 +52,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	}
 	
 	private static final double calculateAudioOffset() {
-		return (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE - AUDIO_BUFFER_SIZE_MS / MS_IN_SEC;
+		return (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE;
 	}
 	
 	@Override
@@ -58,10 +60,35 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 		running.set(true);
 		started.set(true);
 		context.eventRegistry().call(AnalyzeEvent.BEGIN, context);
+		
 		try {
 			double audioOffset = calculateAudioOffset();
 			int sampleRate = DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
 			double frameRate = DRMConstants.DEFAULT_FRAMERATE;
+			DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
+			
+			double defaultFps = configuration.recordDefaultFps();
+			if(defaultFps > 0.0) {
+				frameRate = defaultFps;
+				
+				if(logger.isDebugEnabled())
+					logger.debug("Record frame rate set from configuration (frameRate={}).", frameRate);
+			}
+			
+			boolean useMediaFps = configuration.recordUseMediaFps();
+			if(useMediaFps) {
+				Media media = context.configuration().media();
+				VideoMediaBase video = Media.findOfType(media, MediaType.VIDEO);
+				double mediaFps = video.frameRate();
+				
+				if(mediaFps > 0.0) {
+					frameRate = mediaFps;
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Record frame rate set from media (frameRate={}).", frameRate);
+				}
+			}
+			
 			if(context.configuration().detectFPS()) {
 				tracker = new AnalyzeTracker(analyzeDuration);
 				TrackerManager manager = context.trackerManager();
@@ -71,13 +98,23 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 				context.playback().play();
 				mtxDone.await();
 				if(stopped.get()) return null; // Sending null will stop the pipeline
-				frameRate = metrics.playbackFPS();
+				
+				double analyzedFps = metrics.playbackFPS();
+				if(analyzedFps > 0.0) {
+					frameRate = analyzedFps;
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Record frame rate set from analysis (frameRate={}).", frameRate);
+				}
 			}
+			
 			if(logger.isDebugEnabled())
-				logger.debug("Analyzed FPS: " + frameRate);
+				logger.debug("Final record frame rate: {}.", frameRate);
+			
 			return new AnalyzePhaseResult(context, duration, frameRate, sampleRate, audioOffset);
 		} finally {
 			running.set(false);
+			
 			if(!stopped.get()) {
 				done.set(true);
 				context.eventRegistry().call(AnalyzeEvent.END, context);
