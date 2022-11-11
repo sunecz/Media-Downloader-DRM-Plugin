@@ -30,6 +30,7 @@ import sune.app.mediadown.pipeline.PipelineTaskRegistry.PipelineTaskInputData;
 import sune.app.mediadown.util.MathUtils;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRM;
 import sune.app.mediadownloader.drm.DRMBootstrap;
@@ -49,7 +50,6 @@ import sune.app.mediadownloader.drm.tracker.AnalyzeTracker;
 import sune.app.mediadownloader.drm.tracker.EnumNameTracker;
 import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
 import sune.app.mediadownloader.drm.tracker.RecordTracker;
-import sune.app.mediadownloader.drm.util.StateMutex;
 
 public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipelineResult> {
 	

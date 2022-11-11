@@ -19,6 +19,7 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMConstants;
@@ -34,7 +35,6 @@ import sune.app.mediadownloader.drm.util.RealTimeAudio;
 import sune.app.mediadownloader.drm.util.RealTimeAudio.AudioVolume;
 import sune.app.mediadownloader.drm.util.RecordInfo;
 import sune.app.mediadownloader.drm.util.RecordMetrics;
-import sune.app.mediadownloader.drm.util.StateMutex;
 import sune.app.mediadownloader.drm.util.WindowsKill;
 
 public class RecordPhase implements PipelineTask<RecordPhaseResult> {

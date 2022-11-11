@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 
 public final class CEFLog {

@@ -17,6 +17,7 @@ import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Reflection;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;

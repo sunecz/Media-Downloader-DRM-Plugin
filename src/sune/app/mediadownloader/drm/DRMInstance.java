@@ -24,6 +24,7 @@ import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
@@ -39,7 +40,6 @@ import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
-import sune.app.mediadownloader.drm.util.StateMutex;
 import sune.util.ssdf2.SSDCollection;
 
 public final class DRMInstance implements EventBindable<EventType> {

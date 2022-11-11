@@ -17,9 +17,9 @@ import org.slf4j.Logger;
 
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Reflection2;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.util.CEFLog;
-import sune.app.mediadownloader.drm.util.StateMutex;
 
 public final class DRM {
 	

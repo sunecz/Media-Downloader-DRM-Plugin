@@ -15,6 +15,7 @@ import sune.app.mediadown.media.VideoMediaBase;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
@@ -24,7 +25,6 @@ import sune.app.mediadownloader.drm.tracker.AnalyzeTracker;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.RecordMetrics;
-import sune.app.mediadownloader.drm.util.StateMutex;
 
 public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	

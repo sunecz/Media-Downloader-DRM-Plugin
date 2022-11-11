@@ -24,6 +24,7 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.PathSystem;
+import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
@@ -36,7 +37,6 @@ import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.CEFLog;
 import sune.app.mediadownloader.drm.util.CRXExtractor;
-import sune.app.mediadownloader.drm.util.StateMutex;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDF;
 
