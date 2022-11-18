@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 import sune.api.process.ReadOnlyProcess;
-import sune.app.mediadown.ffmpeg.FFMpeg;
+import sune.app.mediadown.ffmpeg.FFmpeg;
 import sune.app.mediadown.util.CheckedConsumer;
 import sune.app.mediadown.util.ProcessUtils;
 
@@ -18,7 +18,7 @@ public final class ProcessManager {
 	private final AtomicBoolean stopped = new AtomicBoolean();
 	
 	public ReadOnlyProcess ffmpeg(Consumer<String> listener) throws Exception {
-		ReadOnlyProcess process = FFMpeg.createAsynchronousProcess(listener);
+		ReadOnlyProcess process = FFmpeg.createAsynchronousProcess(listener);
 		processes.add(process);
 		return process;
 	}

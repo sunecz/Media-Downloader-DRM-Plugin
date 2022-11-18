@@ -8,7 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import sune.api.process.ReadOnlyProcess;
-import sune.app.mediadown.ffmpeg.FFMpeg;
+import sune.app.mediadown.ffmpeg.FFmpeg;
 
 public final class AudioDevices {
 	
@@ -26,7 +26,7 @@ public final class AudioDevices {
 	public static final List<AudioDevice> directShowDevices() throws Exception {
 		if(dshowDevices == null) {
 			DirectShowAudioDevicesParser parser = new DirectShowAudioDevicesParser();
-			try(ReadOnlyProcess process = FFMpeg.createAsynchronousProcess(parser)) {
+			try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess(parser)) {
 				String command = "-f dshow -list_devices true -i dummy -hide_banner";
 				process.execute(command);
 				DRMProcessUtils.throwIfFailedFFMpeg(process.waitFor(), 1);
