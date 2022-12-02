@@ -169,7 +169,8 @@ public class DRMProxy {
 	private static final class DRMHttpFilters extends HttpFiltersAdapter {
 		
 		private final DRMResolver resolver;
-		private String uri = null;
+		private FullHttpRequest req;
+		private String uri;
 		
 		public DRMHttpFilters(DRMResolver resolver, HttpRequest originalRequest, ChannelHandlerContext clientCtx) {
 			super(originalRequest, clientCtx);
@@ -191,6 +192,7 @@ public class DRMProxy {
 		public HttpResponse clientToProxyRequest(HttpObject httpObject) {
 			if(httpObject instanceof FullHttpRequest) {
 				FullHttpRequest request = (FullHttpRequest) httpObject;
+				req = request;
 				uri = ctx.channel().attr(ATTR_CONNECTED_URL).get() + request.getUri();
 			}
 			return null;
@@ -203,12 +205,12 @@ public class DRMProxy {
 				HttpHeadersInfo info = httpHeadersInfo(response.headers());
 				String mimeType = info.mimeType();
 				Charset charset = info.charset();
-				if(resolver.shouldModifyResponse(uri, mimeType, charset)) {
+				if(resolver.shouldModifyResponse(uri, mimeType, charset, req)) {
 					ByteBuf buf = response.content();
 					byte[] bytes = new byte[buf.readableBytes()];
 					buf.getBytes(buf.readerIndex(), bytes);
 					String content = new String(bytes, charset);
-					String newContent = resolver.modifyResponse(uri, mimeType, charset, content);
+					String newContent = resolver.modifyResponse(uri, mimeType, charset, content, req);
 					byte[] newBytes = newContent.getBytes(charset);
 					ByteBuf newBuf = Unpooled.buffer(newBytes.length);
 					newBuf.writeBytes(newBytes, 0, newBytes.length);
@@ -217,6 +219,7 @@ public class DRMProxy {
 					HttpHeaders.setContentLength(newResponse, newBuf.readableBytes());
 					httpObject = newResponse;
 				}
+				req = null;
 				uri = null;
 			}
 			return httpObject;

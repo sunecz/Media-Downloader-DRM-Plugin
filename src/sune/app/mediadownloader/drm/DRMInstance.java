@@ -13,6 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
+import io.netty.handler.codec.http.FullHttpRequest;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventBindable;
 import sune.app.mediadown.event.EventRegistry;
@@ -449,8 +450,10 @@ public final class DRMInstance implements EventBindable<EventType> {
 		@Override public void onLoadEnd(DRMBrowser browser, CefFrame frame, int httpStatusCode) {}
 		@Override public void onRequest(DRMBrowser browser, CefFrame frame, String requestName, SSDCollection json,
 				String request) {}
-		@Override public boolean shouldModifyResponse(String uri, String mimeType, Charset charset) { return false; }
-		@Override public String modifyResponse(String uri, String mimeType, Charset charset, String content) { return content; }
+		@Override public boolean shouldModifyResponse(String uri, String mimeType, Charset charset,
+				FullHttpRequest request) { return false; }
+		@Override public String modifyResponse(String uri, String mimeType, Charset charset, String content,
+				FullHttpRequest request) { return content; }
 		@Override public String url() { return null; }
 	}
 	
