@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.cef.CefClient;
+import org.cef.CefSettings.LogSeverity;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.cef.browser.CefMessageRouter;
@@ -145,7 +146,8 @@ public final class DRMClient {
 			private final boolean isDebugDisabled = !DRM.isDebug();
 			
 			@Override
-			public boolean onConsoleMessage(CefBrowser browser, org.cef.CefSettings.LogSeverity level, String message, String source, int line) {
+			public boolean onConsoleMessage(CefBrowser browser, LogSeverity level, String message, String source,
+					int line) {
 				return isDebugDisabled;
 			}
 		});
