@@ -26,7 +26,7 @@ public final class JS {
 	}
 	
 	private static final String escape(String string, String chars) {
-		return string.replaceAll("((?<!\\\\)[" + chars + "])", "\\$1");
+		return string.replaceAll("((?<!\\\\)[" + chars + "])", "\\\\$1");
 	}
 	
 	private static final String escapeQS(String string) {
