@@ -97,6 +97,10 @@ public final class JS {
 				browser.accessor().click(browser.center());
 			}));
 		}
+		
+		public static final void enableInterframeCommunication(CefFrame frame) {
+			JS.execute(frame, "MediaDownloader.DRM.Helper.enableInterframeCommunication();");
+		}
 	}
 	
 	public static final class Request {

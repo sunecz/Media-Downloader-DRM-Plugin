@@ -3,34 +3,94 @@
 
 	const _Helper = {
 		isElement(value) { return value instanceof Element || value instanceof HTMLDocument; },
-		// Source: https://stackoverflow.com/a/53872705
-		// Code has been modified.
-		currentFramePosition: function() {
-			const position = { x: 0.0, y: 0.0 };
-			for(let current = window, parent; current !== window.top;) {
-				parent = current.parent;
-				for(let i = 0, len = parent.frames.length; i < len; ++i) {
-					if(parent.frames[i] === current) {
-						try {
-							for(const frame of parent.document.getElementsByTagName('iframe')) {
-								if(frame.contentWindow === current) {
-									const rect = frame.getBoundingClientRect();
-									position.x += rect.x;
-									position.y += rect.y;
-									break;
-								}
+		_iframePosition: function() {
+			return new Promise((resolve, reject) => {
+				const listener = ((e) => {
+					if(e.source !== window.parent) {
+						return;
+					}
+
+					const { 'md': md, 'type': type, 'name': name, 'data': position } = e.data;
+
+					if(md !== true || type !== 'response' || name !== 'iframe-rect') {
+						return;
+					}
+
+					window.removeEventListener('message', listener, true);
+					resolve(position);
+				});
+
+				const request = { md: true, type: 'request', name: 'iframe-rect' };
+
+				window.addEventListener('message', listener, true);
+				window.parent.postMessage(request, '*');
+			});
+		},
+		_processInterframeRequest: function(source, name) {
+			// Handle the request by its name
+			switch(name) {
+				case 'iframe-rect':
+					const frames = window.frames;
+
+					for(let i = 0, l = frames.length; i < l; ++i) {
+						const frame = frames[i];
+
+						if(frame !== source) {
+							continue;
+						}
+
+						for(const iframe of document.getElementsByTagName('iframe')) {
+							if(iframe.contentWindow !== frame) {
+								continue;
 							}
-							current = parent;
-							break;
-						} catch(error) {
-							// Unable to obtain the parent document, probably because of cross-origin blocking.
-							// Just return the position so far.
-							return position;
+
+							return iframe.getBoundingClientRect();
 						}
 					}
-				}
+
+					return { x: NaN, y: NaN };
+				default:
+					// Unsupported, ignore
+					return null;
 			}
-			return position;
+		},
+		_processInterframeCommunication: function(source, data) {
+			// Process only objects
+			if(typeof data !== 'object'
+					|| data === null
+					|| Array.isArray(data)) {
+				return null;
+			}
+
+			const { 'md': md, 'type': type, 'name': name } = data;
+
+			// Not from Media Downloader, ignore
+			if(md !== true) {
+				return null;
+			}
+
+			switch(type) {
+				case 'request':
+					const response = this._processInterframeRequest(source, name);
+					return { md: true, type: 'response', name: name, data: response };
+				default:
+					// Unsupported, ignore
+					return null;
+			}
+		},
+		_currentFramePosition: function() {
+			return window === window.top
+						? new Promise((r) => r({ x: 0.0, y: 0.0 }))
+						: this._iframePosition();
+		},
+		enableInterframeCommunication: function() {
+			window.addEventListener('message', (e) => {
+				const response = this._processInterframeCommunication(e.source, e.data);
+
+				if(response !== null) {
+					e.source.postMessage(response, e.origin);
+				}
+			}, true);
 		},
 		includeStyle: function(content) {
 			const style = document.createElement('style');
@@ -94,7 +154,7 @@
 				} else resolve(element);
 			});
 		},
-		bbox: function(selector_or_element) {
+		bbox: async function(selector_or_element) {
 			const bbox = { x: NaN, y: NaN, width: NaN, height: NaN };
 			let is_element = false;
 
@@ -112,28 +172,28 @@
 				return bbox;
 
 			const rect = element.getBoundingClientRect();
-		    const fpos = this.currentFramePosition();
-		    bbox.x = rect.x + fpos.x;
-		    bbox.y = rect.y + fpos.y;
-		    bbox.width = rect.width;
-		    bbox.height = rect.height;
+			const fpos = await this._currentFramePosition();
+			bbox.x = rect.x + fpos.x;
+			bbox.y = rect.y + fpos.y;
+			bbox.width = rect.width;
+			bbox.height = rect.height;
 
 			return bbox;
 		},
-		click: function(selector, callback) {
+		click: async function(selector, callback) {
 			this.querySelector(selector).then((button) => {
 				let clicked = false, sent = false;
 				const click = ((e) => { clicked = true; });
 				button.addEventListener('click', click, false);
 
-				const intr = setInterval(() => {
-				    if(clicked) {
-				    	clearInterval(intr);
-				    	button.removeEventListener('click', click, false);
-				    } else if(!sent) {
-			    		callback(this.bbox(button));
-			    		sent = true;
-				    }
+				const intr = setInterval(async () => {
+					if(clicked) {
+						clearInterval(intr);
+						button.removeEventListener('click', click, false);
+					} else if(!sent) {
+						callback(await this.bbox(button));
+						sent = true;
+					}
 				}, 100);
 			});
 		},
