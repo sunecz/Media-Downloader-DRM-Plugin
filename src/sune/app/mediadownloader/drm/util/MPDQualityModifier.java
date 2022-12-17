@@ -1,5 +1,6 @@
 package sune.app.mediadownloader.drm.util;
 
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -18,12 +19,15 @@ public final class MPDQualityModifier {
 	
 	private final Document xml;
 	
-	MPDQualityModifier(Document xml) {
-		this.xml = xml;
+	private MPDQualityModifier(Document xml) {
+		this.xml = Objects.requireNonNull(xml);
 	}
 	
 	private static final MediaQuality audioQualityFromBitRate(int bitRate) {
-		if(bitRate <= 0.0) return MediaQuality.UNKNOWN;
+		if(bitRate <= 0.0) {
+			return MediaQuality.UNKNOWN;
+		}
+		
 		AudioQualityValue value = new AudioQualityValue(0, 0, bitRate);
 		return Stream.of(MediaQuality.validQualities())
 				     .filter((q) -> q.mediaType().is(MediaType.AUDIO))
@@ -32,55 +36,63 @@ public final class MPDQualityModifier {
 				     .findFirst().orElse(MediaQuality.UNKNOWN);
 	}
 	
-	public static final MPDQualityModifier fromString(String content) {
-		return new MPDQualityModifier(Jsoup.parse(content, "", Parser.xmlParser()));
-	}
-	
-	private final <T extends Comparable<T>>void removeRepresentations(Element adaptSet, T defaultValue,
-			T wantedValue, Function<Element, T> transformer) {
-		Elements reprs = adaptSet.getElementsByTag("Representation");
-		if(reprs.size() <= 1) return; // Nothing to do
-		T bestQuality = defaultValue;
-		Element bestRepr = null;
-		for(Element repr : reprs) {
-			T quality = transformer.apply(repr);
-			if(quality.compareTo(bestQuality) > 0 && quality.compareTo(wantedValue) <= 0) {
-				bestQuality = quality;
-				bestRepr = repr;
+	private static final <T extends Comparable<T>> void removeRepresentations(Element adaptationSet, T wantedValue,
+			Function<Element, T> transformer) {
+		Elements representations = adaptationSet.getElementsByTag("Representation");
+		
+		// If there is only one or no representation there is nothing to be done
+		if(representations.size() <= 1) {
+			return;
+		}
+		
+		T bestValue = null;
+		Element bestRepresentation = null;
+		
+		for(Element representation : representations) {
+			T value = transformer.apply(representation);
+			
+			if(bestValue == null
+					|| (value.compareTo(bestValue) > 0 && value.compareTo(wantedValue) <= 0)) {
+				bestValue = value;
+				bestRepresentation = representation;
 			}
-			repr.remove();
+			
+			representation.remove();
 		}
-		if(bestRepr != null) {
-			adaptSet.appendChild(bestRepr);
-		}
+		
+		adaptationSet.appendChild(bestRepresentation);
 	}
 	
-	private final void modifyVideo(Element adaptSet, MediaQuality wantedQuality) {
-		removeRepresentations(adaptSet, MediaQuality.UNKNOWN, wantedQuality, (repr) -> {
-			int width = Integer.valueOf(repr.attr("width"));
-			int height = Integer.valueOf(repr.attr("height"));
+	public static final MPDQualityModifier fromString(String string) {
+		return new MPDQualityModifier(Jsoup.parse(string, "", Parser.xmlParser()));
+	}
+	
+	private final void modifyVideo(Element adaptationSet, MediaQuality wantedQuality) {
+		removeRepresentations(adaptationSet, wantedQuality, (representation) -> {
+			int width = Integer.valueOf(representation.attr("width"));
+			int height = Integer.valueOf(representation.attr("height"));
 			return MediaQuality.fromResolution(new MediaResolution(width, height));
 		});
 	}
 	
-	private final void modifyAudio(Element adaptSet, MediaQuality wantedQuality) {
-		removeRepresentations(adaptSet, MediaQuality.UNKNOWN, wantedQuality, (repr) -> {
-			int bandwidth = Integer.valueOf(repr.attr("bandwidth"));
+	private final void modifyAudio(Element adaptationSet, MediaQuality wantedQuality) {
+		removeRepresentations(adaptationSet, wantedQuality, (representation) -> {
+			int bandwidth = Integer.valueOf(representation.attr("bandwidth"));
 			int bitRate = bandwidth / 1000;
 			return audioQualityFromBitRate(bitRate);
 		});
 	}
 	
-	private final void modifyAdaptationSet(Element adaptSet, MediaQuality wantedQuality) {
-		String type = adaptSet.attr("mimeType");
-		if(type.startsWith("video/")) modifyVideo(adaptSet, wantedQuality); else
-		if(type.startsWith("audio/")) modifyAudio(adaptSet, wantedQuality); else
+	private final void modifyAdaptationSet(Element adaptationSet, MediaQuality wantedQuality) {
+		String type = adaptationSet.attr("mimeType");
+		if(type.startsWith("video/")) modifyVideo(adaptationSet, wantedQuality); else
+		if(type.startsWith("audio/")) modifyAudio(adaptationSet, wantedQuality); else
 		throw new IllegalStateException("Unsupported mime type of adaptation set");
 	}
 	
 	public final void modify(MediaQuality wantedQuality) {
-		for(Element adaptSet : xml.getElementsByTag("AdaptationSet")) {
-			modifyAdaptationSet(adaptSet, wantedQuality);
+		for(Element adaptationSet : xml.getElementsByTag("AdaptationSet")) {
+			modifyAdaptationSet(adaptationSet, wantedQuality);
 		}
 	}
 	
