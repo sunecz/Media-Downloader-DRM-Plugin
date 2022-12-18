@@ -56,6 +56,10 @@ public final class MPDQualityModifier {
 	}
 	
 	private static final MediaQuality audioQualityFromVideoQuality(MediaQuality videoQuality) {
+		if(videoQuality.is(MediaQuality.UNKNOWN)) {
+			return MediaQuality.UNKNOWN;
+		}
+		
 		int videoHeight = ((VideoQualityValue) videoQuality.value()).height();
 		
 		for(int i = VIDEO_QUALITIES.length - 1; i >= 0; --i) {
