@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
+import sune.app.mediadown.Arguments;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventType;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
@@ -87,21 +88,8 @@ public final class DRMBootstrapCLI {
 	
 	// This method is run with Media Downloader already initialized, no bootstrap needed.
 	public static void run(String[] args) throws Exception {
-		boolean downloadWidevineCDM = false;
-		
-		if(args.length > 0) {
-			for(int i = 0, l = args.length; i < l; ++i) {
-				String arg = args[i];
-				switch(arg) {
-					case "--download-widevine-cdm":
-						downloadWidevineCDM = true;
-						break;
-					default:
-						// Ignore
-						break;
-				}
-			}
-		}
+		Arguments arguments = Arguments.parse(args);
+		boolean downloadWidevineCDM = arguments.booleanValue("download-widevine-cdm");
 		
 		if(downloadWidevineCDM && !WidevineCDM.isInstalled()) {
 			DRMInstance instance = DRMInstance.downloadWidevineDRM();

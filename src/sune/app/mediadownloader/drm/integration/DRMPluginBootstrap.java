@@ -79,6 +79,9 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 			builder.logFile(PathSystem.getPath(MediaDownloader.class, "drm-debug.log"));
 		}
 		
+		// Optionally generate hash lists, if required
+		builder.generateHashLists(MediaDownloader.arguments().booleanValue("drm-generate-lists"));
+		
 		DRMBootstrap bootstrap = builder.build();
 		addDefaultBootstrapListeners(bootstrap, window != null ? (text) -> window.setText(text) : (text) -> {});
 		bootstrap.run(MediaDownloader.class);
