@@ -256,14 +256,16 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			generateHashList(libFileChecker(versionLib), currentDir.resolve("lib.sha1"), false);
 			generateHashList(cefFileChecker(versionCef), currentDir.resolve("cef.sha1"), false);
 			generateHashList(resFileChecker(versionRes), currentDir.resolve("res.sha1"), false);
-			return; // Do not continue
 		}
 		
-		boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
-		ResourceChecker checker = new ResourceChecker();
-		checkLib(checker, currentDir, checkIntegrity);
-		checkCef(checker, currentDir, checkIntegrity);
-		checkRes(checker, currentDir, checkIntegrity);
+		if(MediaDownloader.AppArguments.isUpdateEnabled()) {
+			ResourceChecker checker = new ResourceChecker();
+			boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
+			
+			checkLib(checker, currentDir, checkIntegrity);
+			checkCef(checker, currentDir, checkIntegrity);
+			checkRes(checker, currentDir, checkIntegrity);
+		}
 		
 		Map<String, Library> map = libraries.stream()
 				.filter((library) -> !ModuleLoader.isLoaded(library.getName()))
