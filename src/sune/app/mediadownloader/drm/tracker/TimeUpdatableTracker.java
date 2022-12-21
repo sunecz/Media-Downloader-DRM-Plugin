@@ -1,10 +1,12 @@
 package sune.app.mediadownloader.drm.tracker;
 
+import java.util.concurrent.TimeUnit;
+
 import sune.app.mediadown.event.tracker.SimpleTracker;
+import sune.app.mediadown.event.tracker.TrackerView;
+import sune.app.mediadown.util.Utils;
 
 public class TimeUpdatableTracker extends SimpleTracker {
-	
-	// TODO: Refactor
 	
 	protected double currentTime;
 	protected double totalTime;
@@ -23,11 +25,22 @@ public class TimeUpdatableTracker extends SimpleTracker {
 		return currentTime / totalTime;
 	}
 	
-	public double getCurrentTime() {
+	@Override
+	public String textProgress() {
+		return null;
+	}
+	
+	public double currentTime() {
 		return currentTime;
 	}
 	
-	public double getTotalTime() {
+	public double totalTime() {
 		return totalTime;
+	}
+	
+	@Override
+	public void view(TrackerView view) {
+		view.current(Utils.OfFormat.time(currentTime, TimeUnit.SECONDS, false));
+		view.total(Utils.OfFormat.time(totalTime, TimeUnit.SECONDS, false));
 	}
 }

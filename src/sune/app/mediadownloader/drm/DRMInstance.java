@@ -259,7 +259,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 	public final void startAndWait() throws Exception {
 		running.set(true);
 		started.set(true);
-		context.eventRegistry().call(DRMInstanceEvent.BEGIN, context);
+		eventRegistry.call(DRMInstanceEvent.BEGIN, context);
 		try {
 			start();
 			await();
@@ -267,7 +267,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 			running.set(false);
 			if(!stopped.get()) {
 				done.set(true);
-				context.eventRegistry().call(DRMInstanceEvent.END, context);
+				eventRegistry.call(DRMInstanceEvent.END, context);
 			}
 			instances.remove(this);
 		}

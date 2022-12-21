@@ -21,6 +21,12 @@ public class EnumNameTracker extends PlainTextTracker {
 		return names;
 	}
 	
+	@Override
+	public String state() {
+		// TODO: Change
+		return "ENUM::" + name;
+	}
+	
 	public String name() {
 		return name;
 	}

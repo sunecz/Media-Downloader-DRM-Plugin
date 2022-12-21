@@ -20,6 +20,12 @@ public class PostProcessTracker extends TimeUpdatableTracker {
 		return names;
 	}
 	
+	@Override
+	public String state() {
+		// TODO: Change
+		return "POST_PROCESS::" + name;
+	}
+	
 	public String name() {
 		return name;
 	}
