@@ -1,5 +1,7 @@
 package sune.app.mediadownloader.drm.tracker;
 
+import sune.app.mediadownloader.drm.integration.DRMProgressStates;
+
 public class AnalyzeTracker extends TimeUpdatableTracker {
 	
 	private boolean isBuffering;
@@ -14,8 +16,7 @@ public class AnalyzeTracker extends TimeUpdatableTracker {
 	
 	@Override
 	public String state() {
-		// TODO: Change
-		return "ANALYZE";
+		return DRMProgressStates.ANALYZE;
 	}
 	
 	public boolean isBuffering() {

@@ -20,7 +20,6 @@ import sune.app.mediadown.event.tracker.SimpleTracker;
 import sune.app.mediadown.event.tracker.Tracker;
 import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
-import sune.app.mediadown.event.tracker.TrackerView;
 import sune.app.mediadown.language.Translation;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.DownloadPipelineResult;
@@ -96,47 +95,58 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	
 	private final void addDefaultBootstrapListeners(EventRegistry<EventType> eventRegistry, Translation translation) {
 		eventRegistry.add(WidevineCDMEvent.BEGIN, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.begin"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.WAIT_CEF_REQUEST, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.wait_cef_request"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.END, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.end"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.ERROR, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.error"));
 			eventRegistryError(tracker, o.b);
 		});
 		eventRegistry.add(WidevineCDMEvent.BEGIN_REQUEST, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.begin_request"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.END_REQUEST, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.end_request"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.BEGIN_DOWNLOAD, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.begin_download"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.UPDATE_DOWNLOAD, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.update_download",
 				"percent", MathUtils.round(o.b.tracker().progress() * 100.0, 2)));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.END_DOWNLOAD, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.end_download"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.BEGIN_EXTRACT, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.begin_extract"));
 			eventRegistryUpdate(tracker);
 		});
 		eventRegistry.add(WidevineCDMEvent.END_EXTRACT, (o) -> {
+			tracker.state(DRMProgressStates.WIDEVINE);
 			tracker.text(translation.getSingle("widevine.end_extract"));
 			eventRegistryUpdate(tracker);
 		});
@@ -144,91 +154,74 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	
 	private final void addDefaultListeners(DRMInstance instance, Pipeline pipeline, Translation translation) {
 		instance.addEventListener(DRMInstanceEvent.BEGIN, (o) -> {
+			tracker.state(DRMProgressStates.INSTANCE);
 			tracker.text(translation.getSingle("drm_instance.begin"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(DRMInstanceEvent.END, (o) -> {
+			tracker.state(DRMProgressStates.INSTANCE);
 			tracker.text(translation.getSingle("drm_instance.end"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(DRMInstanceEvent.ERROR, (o) -> {
+			tracker.state(DRMProgressStates.INSTANCE);
 			tracker.text(translation.getSingle("drm_instance.error"));
 			eventRegistryError(tracker, o.b);
 		});
-
+		
 		instance.addEventListener(AnalyzeEvent.BEGIN, (o) -> {
+			tracker.state(DRMProgressStates.ANALYZE);
 			tracker.text(translation.getSingle("phase.analyze.begin"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(AnalyzeEvent.UPDATE, (o) -> {
-			/*AnalyzeTracker phaseTracker = (AnalyzeTracker) o.b.tracker();
-			String progress = translation.getSingle("phase.analyze.update",
-				"percent",      MathUtils.round(phaseTracker.progress() * 100.0, 2),
-				"current_time", MathUtils.round(phaseTracker.currentTime(), 2),
-				"total_time",   MathUtils.round(phaseTracker.totalTime(), 2));*/
 			eventRegistryUpdate(o.b.tracker());
 		});
 		instance.addEventListener(AnalyzeEvent.END, (o) -> {
+			tracker.state(DRMProgressStates.ANALYZE);
 			tracker.text(translation.getSingle("phase.analyze.end"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(AnalyzeEvent.ERROR, (o) -> {
+			tracker.state(DRMProgressStates.ANALYZE);
 			tracker.text(translation.getSingle("phase.analyze.error"));
 			eventRegistryError(tracker, o.b);
 		});
-
+		
 		instance.addEventListener(RecordEvent.BEGIN, (o) -> {
+			tracker.state(DRMProgressStates.RECORD);
 			tracker.text(translation.getSingle("phase.record.begin"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(RecordEvent.UPDATE, (o) -> {
-			/*RecordTracker phaseTracker = (RecordTracker) o.b.tracker();
-			String progress = translation.getSingle("phase.record.update",
-				"percent",      MathUtils.round(phaseTracker.progress() * 100.0, 2),
-				"current_time", MathUtils.round(phaseTracker.currentTime(), 2),
-				"total_time",   MathUtils.round(phaseTracker.totalTime(), 2));*/
 			eventRegistryUpdate(o.b.tracker());
 		});
 		instance.addEventListener(RecordEvent.END, (o) -> {
+			tracker.state(DRMProgressStates.RECORD);
 			tracker.text(translation.getSingle("phase.record.end"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(RecordEvent.ERROR, (o) -> {
+			tracker.state(DRMProgressStates.RECORD);
 			tracker.text(translation.getSingle("phase.record.error"));
 			eventRegistryError(tracker, o.b);
 		});
-
+		
 		instance.addEventListener(PostProcessEvent.BEGIN, (o) -> {
+			tracker.state(DRMProgressStates.POST_PROCESS);
 			tracker.text(translation.getSingle("phase.post_process.begin"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(PostProcessEvent.UPDATE, (o) -> {
-			/*Tracker phaseTracker = o.b.tracker();
-			String progress = phaseTracker.textProgress();
-			if(phaseTracker instanceof PostProcessTracker) {
-				PostProcessTracker processTracker = (PostProcessTracker) phaseTracker;
-				if(processTracker.totalTime() > 0.0) {
-					progress = translation.getSingle("phase.post_process.update_percent",
-						"name",         translation.getSingle("phase.post_process.enum." + processTracker.name()),
-						"percent",      MathUtils.round(processTracker.progress() * 100.0, 2),
-						"current_time", MathUtils.round(processTracker.currentTime(), 2),
-						"total_time",   MathUtils.round(processTracker.totalTime(), 2));
-				} else {
-					progress = translation.getSingle("phase.post_process.update_no_percent",
-						"name",         translation.getSingle("phase.post_process.enum." + processTracker.name()),
-						"current_time", MathUtils.round(processTracker.currentTime(), 2));
-				}
-			} else if(phaseTracker instanceof EnumNameTracker) {
-				EnumNameTracker processTracker = (EnumNameTracker) phaseTracker;
-				progress = translation.getSingle("phase.post_process.enum." + processTracker.name());
-			}*/
 			eventRegistryUpdate(o.b.tracker());
 		});
 		instance.addEventListener(PostProcessEvent.END, (o) -> {
+			tracker.state(DRMProgressStates.POST_PROCESS);
 			tracker.text(translation.getSingle("phase.post_process.end"));
 			eventRegistryUpdate(tracker);
 		});
 		instance.addEventListener(PostProcessEvent.ERROR, (o) -> {
+			tracker.state(DRMProgressStates.POST_PROCESS);
 			tracker.text(translation.getSingle("phase.post_process.error"));
 			eventRegistryError(tracker, o.b);
 		});
@@ -366,7 +359,13 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 	
 	private final class TextProgressSimpleTracker extends SimpleTracker {
 		
+		private String state;
 		private String text;
+		
+		public void state(String state) {
+			this.state = state;
+			update();
+		}
 		
 		public void text(String text) {
 			this.text = text;
@@ -384,8 +383,8 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		}
 		
 		@Override
-		public void view(TrackerView view) {
-			view.information(text);
+		public String state() {
+			return state;
 		}
 	}
 	

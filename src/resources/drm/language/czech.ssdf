@@ -38,23 +38,19 @@
 			},
 			phase: {
 				analyze: {
-					begin:  "Spouštění analyzování...",
-					update: "Analyzování... %{percent}%% (%{current_time}/%{total_time}s)",
-					end:    "Analyzování dokončeno",
-					error:  "Při analyzování došlo k chybě"
+					begin: "Spouštění analyzování...",
+					end:   "Analyzování dokončeno",
+					error: "Při analyzování došlo k chybě"
 				},
 				record: {
-					begin:  "Spouštění nahrávání...",
-					update: "Nahrávání... %{percent}%% (%{current_time}/%{total_time}s)",
-					end:    "Nahrávání dokončeno",
-					error:  "Při nahrávání došlo k chybě"
+					begin: "Spouštění nahrávání...",
+					end:   "Nahrávání dokončeno",
+					error: "Při nahrávání došlo k chybě"
 				},
 				post_process: {
-					begin:             "Spouštění zpracování...",
-					update_percent:    "%{name}... %{percent}%% (%{current_time}/%{total_time}s)",
-					update_no_percent: "%{name}... %{current_time}s",
-					end:               "Zpracování dokončeno",
-					error:             "Při zpracování došlo k chybě",
+					begin: "Spouštění zpracování...",
+					end:   "Zpracování dokončeno",
+					error: "Při zpracování došlo k chybě",
 					enum: {
 						MEAN_VOLUME:    "Získávání průměru hlasitosti",
 						VOLUME_ENTRIES: "Získávání záznamů hlasitosti",
@@ -67,6 +63,13 @@
 						MERGE:          "Sloučení videa a audia"
 					}
 				}
+			},
+			states: {
+				instance:     "Proces DRM",
+				widevine:     "Widevine",
+				analyze:      "Analýza",
+				record:       "Nahrávání",
+				post_process: "Zpracování"
 			}
 		}
 	}

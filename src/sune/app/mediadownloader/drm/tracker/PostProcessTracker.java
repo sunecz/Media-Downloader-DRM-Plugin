@@ -5,6 +5,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import sune.app.mediadownloader.drm.integration.DRMProgressStates;
+
 public class PostProcessTracker extends TimeUpdatableTracker {
 	
 	private final List<String> names;
@@ -22,8 +24,7 @@ public class PostProcessTracker extends TimeUpdatableTracker {
 	
 	@Override
 	public String state() {
-		// TODO: Change
-		return "POST_PROCESS::" + name;
+		return DRMProgressStates.POST_PROCESS;
 	}
 	
 	public String name() {

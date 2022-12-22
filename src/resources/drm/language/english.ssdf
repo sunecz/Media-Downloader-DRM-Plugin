@@ -38,23 +38,19 @@
 			},
 			phase: {
 				analyze: {
-					begin:  "Starting analyzing...",
-					update: "Analyzing... %{percent}%% (%{current_time}/%{total_time}s)",
-					end:    "Analyzing ended",
-					error:  "An error occurred while analyzing"
+					begin: "Starting analyzing...",
+					end:   "Analyzing ended",
+					error: "An error occurred while analyzing"
 				},
 				record: {
-					begin:  "Starting recording...",
-					update: "Recording... %{percent}%% (%{current_time}/%{total_time}s)",
-					end:    "Recording ended",
-					error:  "An error occurred while recording"
+					begin: "Starting recording...",
+					end:   "Recording ended",
+					error: "An error occurred while recording"
 				},
 				post_process: {
-					begin:             "Starting post-processing...",
-					update_percent:    "%{name}... %{percent}%% (%{current_time}/%{total_time}s)",
-					update_no_percent: "%{name}... %{current_time}s",
-					end:               "Post-processing ended",
-					error:             "An error occurred while post-processing",
+					begin: "Starting post-processing...",
+					end:   "Post-processing ended",
+					error: "An error occurred while post-processing",
 					enum: {
 						MEAN_VOLUME:    "Getting volume mean",
 						VOLUME_ENTRIES: "Getting volume entries",
@@ -67,6 +63,13 @@
 						MERGE:          "Merging video and audio"
 					}
 				}
+			},
+			states: {
+				instance:     "DRM process",
+				widevine:     "Widevine",
+				analyze:      "Analysis",
+				record:       "Recording",
+				post_process: "Post process"
 			}
 		}
 	}

@@ -1,5 +1,7 @@
 package sune.app.mediadownloader.drm.tracker;
 
+import sune.app.mediadownloader.drm.integration.DRMProgressStates;
+
 public class RecordTracker extends TimeUpdatableTracker {
 	
 	public RecordTracker(double totalTime) {
@@ -8,7 +10,6 @@ public class RecordTracker extends TimeUpdatableTracker {
 	
 	@Override
 	public String state() {
-		// TODO: Change
-		return "RECORD";
+		return DRMProgressStates.RECORD;
 	}
 }
