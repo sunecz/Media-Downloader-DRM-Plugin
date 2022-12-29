@@ -283,12 +283,19 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			}
 			// Create the output file so that the "Show file" function works
 			NIO.createFile(destination);
+			
+			// Obtain quality from the configuration
+			DRMPluginConfiguration pluginConfiguration = DRMPluginConfiguration.instance();
+			DRMConfiguration.Quality quality = pluginConfiguration.quality();
+			
 			// Configure the DRM
 			DRMConfiguration configuration = new DRMConfiguration.Builder()
 					.output(destination)
 					.media(media)
 					.detectFPS(false) // Do not automatically detect FPS for now
+					.quality(quality)
 					.build();
+			
 			// Prepare the DRM instance
 			instance = DRMInstance.withEngine(engine, url, configuration);
 			addDefaultListeners(instance, pipeline, translation);

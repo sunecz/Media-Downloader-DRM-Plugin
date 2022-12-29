@@ -71,6 +71,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 	private volatile Playback playback;
 	private volatile ProcessManager processManager;
 	private volatile AudioDevice audioDevice;
+	private volatile DRMCommandFactory commandFactory;
 	
 	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
 	private final TrackerManager manager = new TrackerManager();
@@ -162,6 +163,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 		JS.Helper.enableDoUserInteraction(browser, frame);
 		
 		processManager = new ProcessManager();
+		commandFactory = new DRMCommandFactory(configuration);
 		pipeline.setInput(new InitializationPhaseInput(context, duration));
 		mtxInit.unlock();
 		mtxReady.await();
@@ -178,8 +180,10 @@ public final class DRMInstance implements EventBindable<EventType> {
 	}
 	
 	private final void doMode_DRMEngine() throws Exception {
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Current mode: DRM Engine");
+			logger.debug("Configuration: quality={}", configuration.quality());
+		}
 		
 		int width = DEFAULT_BROWSER_WIDTH, height = DEFAULT_BROWSER_HEIGHT;
 		Path output = configuration.output();
@@ -547,6 +551,11 @@ public final class DRMInstance implements EventBindable<EventType> {
 		@Override
 		public ProcessManager processManager() {
 			return processManager;
+		}
+		
+		@Override
+		public DRMCommandFactory commandFactory() {
+			return commandFactory;
 		}
 		
 		@Override

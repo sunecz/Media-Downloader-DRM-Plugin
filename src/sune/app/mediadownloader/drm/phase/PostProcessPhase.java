@@ -13,6 +13,7 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
+import sune.app.mediadownloader.drm.DRMCommandFactory;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.PostProcessEvent;
@@ -46,19 +47,19 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 	}
 	
 	private final double postProcessVideo(ProcessManager processManager, FilesManager filesManager,
-			Path inputPath, Path outputPath) throws Exception {
+			DRMCommandFactory commandFactory, Path inputPath, Path outputPath) throws Exception {
 		SimpleVideoProcessor processor
-			= new SimpleVideoProcessor(context.trackerManager(), processManager, filesManager, recordInfo,
-			                           inputPath, outputPath);
+			= new SimpleVideoProcessor(context.trackerManager(), processManager, filesManager, commandFactory,
+			                           recordInfo, inputPath, outputPath);
 		processor.process();
 		return processor.duration();
 	}
 	
 	private final double postProcessAudio(ProcessManager processManager, FilesManager filesManager,
-			Path inputPath, Path outputPath) throws Exception {
+			DRMCommandFactory commandFactory, Path inputPath, Path outputPath) throws Exception {
 		SimpleAudioProcessor processor
-			= new SimpleAudioProcessor(context.trackerManager(), processManager, filesManager, recordInfo,
-			                           inputPath, outputPath);
+			= new SimpleAudioProcessor(context.trackerManager(), processManager, filesManager, commandFactory,
+			                           recordInfo, inputPath, outputPath);
 		processor.process();
 		return processor.duration();
 	}
@@ -80,15 +81,16 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		
 		Path output = context.configuration().output();
 		Path outputRecord = recordInfo.path();
+		DRMCommandFactory commandFactory = context.commandFactory();
 		
 		String fileName = output.getFileName().toString();
-		Path videoOutputPath = output.resolveSibling(fileName + ".video.mkv");
-		Path audioOutputPath = output.resolveSibling(fileName + ".audio.wav");
+		Path videoOutputPath = output.resolveSibling(fileName + ".video." + commandFactory.videoProcessorCommandFileExtension());
+		Path audioOutputPath = output.resolveSibling(fileName + ".audio." + commandFactory.audioProcessorCommandFileExtension());
 		
 		ProcessManager processManager = context.processManager();
 		FilesManager filesManager = new FilesManager();
-		double durationVideo = postProcessVideo(processManager, filesManager, outputRecord, videoOutputPath);
-		double durationAudio = postProcessAudio(processManager, filesManager, outputRecord, audioOutputPath);
+		double durationVideo = postProcessVideo(processManager, filesManager, commandFactory, outputRecord, videoOutputPath);
+		double durationAudio = postProcessAudio(processManager, filesManager, commandFactory, outputRecord, audioOutputPath);
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		
 		double duration = Math.min(durationVideo, durationAudio);

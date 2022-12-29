@@ -29,6 +29,7 @@ public interface DRMContext {
 	DRMBrowserContext browserContext();
 	Playback playback();
 	ProcessManager processManager();
+	DRMCommandFactory commandFactory();
 	
 	UUID uuid();
 	DRMConfiguration configuration();

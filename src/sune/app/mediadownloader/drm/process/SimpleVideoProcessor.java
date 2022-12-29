@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.util.Utils;
+import sune.app.mediadownloader.drm.DRMCommandFactory;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.integration.DRMPluginConfiguration;
 import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
@@ -29,6 +30,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 	private final TrackerManager trackerManager;
 	private final ProcessManager processManager;
 	private final FilesManager filesManager;
+	private final DRMCommandFactory commandFactory;
 	private final RecordInfo recordInfo;
 	private final Path inputPath;
 	private final Path outputPath;
@@ -36,10 +38,12 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 	private double duration;
 	
 	public SimpleVideoProcessor(TrackerManager trackerManager, ProcessManager processManager,
-			FilesManager filesManager, RecordInfo recordInfo, Path inputPath, Path outputPath) {
+			FilesManager filesManager, DRMCommandFactory commandFactory, RecordInfo recordInfo, Path inputPath,
+			Path outputPath) {
 		this.trackerManager = trackerManager;
 		this.processManager = processManager;
 		this.filesManager = filesManager;
+		this.commandFactory = commandFactory;
 		this.recordInfo = recordInfo;
 		this.inputPath = inputPath;
 		this.outputPath = outputPath;
@@ -72,7 +76,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 		if(logger.isDebugEnabled())
 			logger.debug("Process video: {}", inputPath.toString());
 		
-		Path path = inputPath.resolveSibling("video.fix.mkv");
+		Path path = inputPath.resolveSibling("video.fix." + commandFactory.videoProcessorCommandFileExtension());
 		extractFixedVideo(inputPath, path);
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		
@@ -119,7 +123,7 @@ public final class SimpleVideoProcessor implements VideoProcessor {
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.TRIM_VIDEO);
 		trackerManager.tracker(tracker);
 		
-		String args = "-c:v libx264rgb -preset ultrafast -tune film -qp 0 -pix_fmt rgb24 -g 1";
+		String args = commandFactory.videoProcessorCommandArguments();
 		double frameRate = recordInfo.frameRate();
 		Consumer<String> parser = new FFMpegTimeProgressParser(tracker);
 		
