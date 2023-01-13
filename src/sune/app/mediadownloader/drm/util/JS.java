@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.Shared;
-import sune.app.mediadown.util.Utils;
+import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils.BBox;
@@ -42,7 +42,7 @@ public final class JS {
 	}
 	
 	public static final boolean include(CefFrame frame, String path, Consumer<Exception> onError) {
-		return Utils.ignoreWithCheck(() -> {
+		return Ignore.callAndCheck(() -> {
 			try(InputStream stream = IntegrationUtils.resourceStream(path)) {
 				execute(frame, new String(stream.readAllBytes(), Shared.CHARSET));
 			}

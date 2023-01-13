@@ -27,7 +27,7 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
 import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
-import sune.app.mediadown.util.Utils;
+import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
 import sune.app.mediadownloader.drm.event.DRMInstanceEvent;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
@@ -390,7 +390,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 				if(logger.isDebugEnabled())
 					logger.debug("Checking if the video is playing...");
 				
-				boolean isPlaying = Utils.ignore(playback.isPlaying()::get, false);
+				boolean isPlaying = Ignore.defaultValue(playback.isPlaying()::get, false);
 				
 				if(logger.isDebugEnabled())
 					logger.debug("Video is playing: {}.", isPlaying);
@@ -399,7 +399,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 					if(logger.isDebugEnabled())
 						logger.debug("Video is playing. Pausing...");
 					
-					Utils.ignore(playback.pause()::await);
+					Ignore.callVoid(playback.pause()::await);
 				}
 				
 				// Time must be set to 0.0 seconds manually
@@ -408,7 +408,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 						logger.debug("Time is not 0.0 seconds. Setting time to 0.0 seconds...");
 					
 					// Set the time to 0.0 seconds
-					Utils.ignore(playback.time(0.0, true).then(() -> time.setValue(0.0))::await);
+					Ignore.callVoid(playback.time(0.0, true).then(() -> time.setValue(0.0))::await);
 					
 					if(logger.isDebugEnabled())
 						logger.debug("Time set to 0.0 seconds.");

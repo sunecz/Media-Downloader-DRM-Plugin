@@ -8,7 +8,7 @@ import sune.app.mediadown.language.Translation;
 import sune.app.mediadown.plugin.PluginFile;
 import sune.app.mediadown.plugin.PluginResource;
 import sune.app.mediadown.util.PathSystem;
-import sune.app.mediadown.util.Utils;
+import sune.app.mediadown.util.Utils.Ignore;
 
 public final class IntegrationUtils {
 	
@@ -37,7 +37,7 @@ public final class IntegrationUtils {
 	}
 	
 	public static final Path jarPath() {
-		Path path = Utils.ignore(() -> Path.of(MediaDownloader.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
+		Path path = Ignore.call(() -> Path.of(MediaDownloader.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
 		// Special case for running from a build directory
 		if(path != null && !path.getFileName().toString().endsWith(".jar")) {
 			path = path.getParent().resolve("jar/media-downloader.jar");

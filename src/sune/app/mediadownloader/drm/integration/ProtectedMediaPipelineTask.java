@@ -31,6 +31,7 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Utils;
+import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.DRM;
 import sune.app.mediadownloader.drm.DRMBootstrap;
 import sune.app.mediadownloader.drm.DRMBootstrapCLI;
@@ -308,7 +309,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			if(!DRMBootstrap.instance().debug()) {
 				try {
 					Path path = DRM.cefLogFile();
-					long size = Utils.ignore(() -> NIO.size(path), 0L);
+					long size = Ignore.defaultValue(() -> NIO.size(path), 0L);
 					if(size <= 0) NIO.deleteFile(path);
 				} catch(Exception ex) {
 					// Ignore
