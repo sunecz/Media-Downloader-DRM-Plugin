@@ -71,14 +71,6 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		if(logger.isDebugEnabled())
 			logger.debug("Post-processing...");
 		
-		if(logger.isDebugEnabled())
-			logger.debug("Closing browser...");
-		
-		context.browserContext().close();
-		
-		if(logger.isDebugEnabled())
-			logger.debug("Browser closed.");
-		
 		Path output = context.configuration().output();
 		Path outputRecord = recordInfo.path();
 		DRMCommandFactory commandFactory = context.commandFactory();

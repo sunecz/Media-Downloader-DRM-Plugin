@@ -342,6 +342,14 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				try {
 					context.processManager().closeAll();
 					closeAudio();
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Closing browser...");
+					
+					context.browserContext().close();
+					
+					if(logger.isDebugEnabled())
+						logger.debug("Browser closed.");
 				} finally {
 					done.set(true);
 					context.eventRegistry().call(RecordEvent.END, context);
