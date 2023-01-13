@@ -105,13 +105,13 @@ public final class DRMCommandFactory {
 	public String audioProcessorCommandArguments() {
 		switch(configuration.quality()) {
 			case LOSSLESS:
-				return "-c:a pcm_s16le";
+				return "-c:a aac -b:a 320k";
 			case HIGH:
-				return "-c:a pcm_s16le";
+				return "-c:a aac -b:a 256k";
 			case MEDIUM:
-				return "-c:a aac";
+				return "-c:a aac -b:a 160k";
 			case LOW:
-				return "-c:a aac";
+				return "-c:a aac -b:a 128k";
 			default:
 				throw new IllegalStateException("Invalid quality");
 		}

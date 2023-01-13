@@ -11,6 +11,7 @@ import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
+import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMCommandFactory;
@@ -24,6 +25,7 @@ import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
 import sune.app.mediadownloader.drm.util.DRMProcessUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils;
 import sune.app.mediadownloader.drm.util.FFMpegTimeProgressParser;
+import sune.app.mediadownloader.drm.util.FFMpegTrimCommandGenerator.TrimCommand;
 import sune.app.mediadownloader.drm.util.FilesManager;
 import sune.app.mediadownloader.drm.util.ProcessManager;
 import sune.app.mediadownloader.drm.util.RecordInfo;
@@ -46,46 +48,52 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		this.recordInfo = recordInfo;
 	}
 	
-	private final double postProcessVideo(ProcessManager processManager, FilesManager filesManager,
-			DRMCommandFactory commandFactory, Path inputPath, Path outputPath) throws Exception {
-		SimpleVideoProcessor processor
-			= new SimpleVideoProcessor(context.trackerManager(), processManager, filesManager, commandFactory,
-			                           recordInfo, inputPath, outputPath);
+	private final TrimCommand postProcessVideo(Path inputPath, double duration) throws Exception {
+		SimpleVideoProcessor processor = new SimpleVideoProcessor(recordInfo, inputPath, duration);
 		processor.process();
-		return processor.duration();
+		return processor.command();
 	}
 	
-	private final double postProcessAudio(ProcessManager processManager, FilesManager filesManager,
-			DRMCommandFactory commandFactory, Path inputPath, Path outputPath) throws Exception {
-		SimpleAudioProcessor processor
-			= new SimpleAudioProcessor(context.trackerManager(), processManager, filesManager, commandFactory,
-			                           recordInfo, inputPath, outputPath);
+	private final TrimCommand postProcessAudio(Path inputPath, double duration) throws Exception {
+		SimpleAudioProcessor processor = new SimpleAudioProcessor(recordInfo, inputPath, duration);
 		processor.process();
-		return processor.duration();
+		return processor.command();
 	}
 	
 	private final void postProcess() throws Exception {
 		TrackerManager trackerManager = context.trackerManager();
 		trackerManager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(PostProcessEvent.UPDATE, new Pair<>(context, trackerManager)));
 		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Post-processing...");
+		}
 		
 		Path output = context.configuration().output();
 		Path outputRecord = recordInfo.path();
-		DRMCommandFactory commandFactory = context.commandFactory();
 		
-		String fileName = output.getFileName().toString();
-		Path videoOutputPath = output.resolveSibling(fileName + ".video." + commandFactory.videoProcessorCommandFileExtension());
-		Path audioOutputPath = output.resolveSibling(fileName + ".audio." + commandFactory.audioProcessorCommandFileExtension());
+		double duration = DRMProcessUtils.duration(outputRecord);
+		if(logger.isDebugEnabled()) {
+			logger.debug("Duration: {}s", DRMUtils.format("%.6f", duration));
+		}
 		
 		ProcessManager processManager = context.processManager();
+		DRMCommandFactory commandFactory = context.commandFactory();
 		FilesManager filesManager = new FilesManager();
-		double durationVideo = postProcessVideo(processManager, filesManager, commandFactory, outputRecord, videoOutputPath);
-		double durationAudio = postProcessAudio(processManager, filesManager, commandFactory, outputRecord, audioOutputPath);
+		TrimCommand commandVideo = postProcessVideo(outputRecord, duration);
+		TrimCommand commandAudio = postProcessAudio(outputRecord, duration);
+		
+		// Combine the scripts for both the video and audio and output it to a file
+		// so it can be used later in the ffmpeg command.
+		Path scriptPath = output.resolveSibling(output.getFileName().toString() + ".script");
+		StringBuilder scriptContent = new StringBuilder();
+		scriptContent.append(commandVideo.script());
+		scriptContent.append(';');
+		scriptContent.append(commandAudio.script());
+		NIO.save(scriptPath, scriptContent.toString());
+		filesManager.delete(scriptPath);
+		
 		if(processManager.isStopped()) return; // Stopped, do not continue
 		
-		double duration = Math.min(durationVideo, durationAudio);
 		PostProcessTracker.Factory<PostProcessOperation> processTrackerFactory
 			= new PostProcessTracker.Factory<>(PostProcessOperation.class);
 		PostProcessTracker tracker = processTrackerFactory.create(duration, PostProcessOperation.MERGE);
@@ -95,30 +103,33 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 		try(ReadOnlyProcess process = processManager.ffmpeg(parser)) {
 			StringBuilder builder = new StringBuilder();
 			builder.append(" -y -hide_banner -v info");
-			builder.append(" -i \"%{input_video}s\"");
-			builder.append(" -itsoffset %{audio_offset}s"); // Fix video/audio desync
-			builder.append(" -i \"%{input_audio}s\"");
-			builder.append(" -c:v copy -c:a aac");
+			builder.append(" -i \"%{input}s\"");
+			builder.append(" -filter_complex_script \"%{script_path}s\"");
+			builder.append(" -map [%{map_video}s] -map [%{map_audio}s]");
+			builder.append(" %{args_video}s %{args_audio}s");
 			builder.append(" -shortest"); // Fix output file duration
 			builder.append(" \"%{output}s\"");
-			String command = Utils.format(builder.toString(),
-				"input_video", videoOutputPath.toAbsolutePath().toString(),
-				"audio_offset", DRMUtils.toString(recordInfo.audioOffset()),
-				"input_audio", audioOutputPath.toAbsolutePath().toString(),
-				"output", output.toAbsolutePath().toString());
-			if(logger.isDebugEnabled())
+			
+			String command = Utils.format(
+				builder.toString(),
+				"input", outputRecord.toAbsolutePath().toString(),
+				"script_path", scriptPath,
+				"map_video", commandVideo.map(),
+				"map_audio", commandAudio.map(),
+				"args_video", commandFactory.videoProcessorCommandArguments(),
+				"args_audio", commandFactory.audioProcessorCommandArguments(),
+				"output", output.toAbsolutePath().toString()
+			);
+			
+			if(logger.isDebugEnabled()) {
 				logger.debug("ffmpeg{}", command);
+			}
+			
 			process.execute(command);
 			DRMProcessUtils.throwIfFailedFFMpeg(process.waitFor());
 		}
 		
 		DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
-		
-		if(!configuration.processKeepTemporaryFiles()) {
-			filesManager.delete(videoOutputPath);
-			filesManager.delete(audioOutputPath);
-		}
-		
 		if(!configuration.processKeepRecordFile()) {
 			filesManager.delete(outputRecord);
 		}
