@@ -15,14 +15,10 @@ public final class DRMCommandFactory {
 		this.configuration = Objects.requireNonNull(configuration);
 	}
 	
-	public String recordCommand(String audioDeviceName, double frameRate, int sampleRate, String windowTitle,
-			double audioOffset, Path recordPath) {
+	public String recordCommand(String audioDeviceName, double recordFrameRate, double frameRate, int sampleRate,
+			String windowTitle, Path recordPath) {
 		StringBuilder builder = new StringBuilder();
 		builder.append(" -y"); // Rewrite the output file, if it exists
-		
-		builder.append(" -fflags +genpts+igndts");
-		
-		double recordFrameRate = 60.0; // TODO: Make configurable/automatic
 		
 		builder.append(" -f dshow"); // Record audio
 		builder.append(" -thread_queue_size 1024 -probesize 16M -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
@@ -114,25 +110,6 @@ public final class DRMCommandFactory {
 				return "-c:a aac -b:a 160k";
 			case LOW:
 				return "-c:a aac -b:a 128k";
-			default:
-				throw new IllegalStateException("Invalid quality");
-		}
-	}
-	
-	public String videoProcessorCommandFileExtension() {
-		return "mkv";
-	}
-	
-	public String audioProcessorCommandFileExtension() {
-		switch(configuration.quality()) {
-			case LOSSLESS:
-				return "wav";
-			case HIGH:
-				return "wav";
-			case MEDIUM:
-				return "aac";
-			case LOW:
-				return "aac";
 			default:
 				throw new IllegalStateException("Invalid quality");
 		}

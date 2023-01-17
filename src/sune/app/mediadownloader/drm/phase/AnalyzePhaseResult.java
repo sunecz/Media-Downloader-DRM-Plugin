@@ -11,19 +11,17 @@ public class AnalyzePhaseResult implements PipelineResult<RecordPhaseResult> {
 	private final double duration;
 	private final double frameRate;
 	private final int sampleRate;
-	private final double audioOffset;
 	
-	public AnalyzePhaseResult(DRMContext context, double duration, double frameRate, int sampleRate, double audioOffset) {
+	public AnalyzePhaseResult(DRMContext context, double duration, double frameRate, int sampleRate) {
 		this.context = context;
 		this.duration = duration;
 		this.frameRate = frameRate;
 		this.sampleRate = sampleRate;
-		this.audioOffset = audioOffset;
 	}
 	
 	@Override
 	public PipelineTask<RecordPhaseResult> process(Pipeline pipeline) throws Exception {
-		return new RecordPhase(context, duration, frameRate, sampleRate, audioOffset);
+		return new RecordPhase(context, duration, frameRate, sampleRate);
 	}
 	
 	@Override

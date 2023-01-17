@@ -1,11 +1,10 @@
 package sune.app.mediadownloader.drm.phase;
 
+import java.io.OutputStream;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,14 +41,14 @@ import sune.app.mediadownloader.drm.util.WindowsKill;
 public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private static final Logger logger = DRMLog.get();
-	private static final Pattern PATTERN_LINE_PROGRESS = Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
+	private static final Pattern PATTERN_LINE_PROGRESS
+		= Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
 	
 	private final DRMContext context;
 	private final Path recordPath;
 	private final double duration;
 	private final double frameRate;
 	private final int sampleRate;
-	private final double audioOffset;
 	
 	private final RecordMetrics metrics = new RecordMetrics();
 	private final StateMutex mtxDone = new StateMutex();
@@ -59,25 +58,19 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final List<Cut.OfDouble> audioCuts = new ArrayList<>();
 	private double startCutOff = 0.0;
 	private double endCutOff = -1.0;
-	private volatile double pauseTime = -1.0;
-	private volatile double waitPlaybackTime = -1.0;
+	private volatile double pauseTimeVideo = -1.0;
+	private volatile double pauseTimeAudio = -1.0;
 	private volatile double lastValidRecordTime = -1.0;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
 	private final AtomicBoolean videoEnded = new AtomicBoolean(false);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
 	private final AtomicBoolean recordPaused = new AtomicBoolean(false);
 	
-	private double audioTimeDelay = 0.0;
-	private boolean first = true;
-	
 	private double lastWaitTime = Double.NaN;
-	private double firstResumeTime = Double.NaN;
 	
 	private RealTimeAudio audio;
-	private volatile boolean hasLastAudioTime = false;
-	private volatile double pauseTimeAudio = -1.0;
-	private volatile double durationDiff = 0.0;
-	private final Queue<Cut.OfDouble> pendingPauseCuts = new ConcurrentLinkedQueue<>();
+	private boolean hasLastAudioTime = false;
+	private volatile int pendingPauseCutsCount = 0;
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -92,14 +85,12 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final AtomicBoolean paused = new AtomicBoolean();
 	private final AtomicBoolean stopped = new AtomicBoolean();
 	
-	public RecordPhase(DRMContext context, double duration, double frameRate, int sampleRate,
-			double audioOffset) {
+	public RecordPhase(DRMContext context, double duration, double frameRate, int sampleRate) {
 		this.context = context;
 		this.recordPath = ensureMKVPath(context.configuration().output());
 		this.duration = duration;
 		this.frameRate = frameRate;
 		this.sampleRate = sampleRate;
-		this.audioOffset = audioOffset;
 	}
 	
 	private static final Path ensureMKVPath(Path path) {
@@ -108,29 +99,23 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		return path.resolveSibling(Utils.fileNameNoType(fileName) + ".mkv");
 	}
 	
-	private final double recordTime() {
+	private final double recordVideoTime() {
 		return Math.floor(metrics.recordTime() * frameRate) / frameRate;
 	}
 	
+	private final double includeVideoFrame(double recordVideoTime) {
+		return recordVideoTime + 0.5 / frameRate;
+	}
+	
+	private final RecordInfo recordInfo() {
+		Cut.OfDouble cutOff = new Cut.OfDouble(startCutOff, endCutOff);
+		return new RecordInfo(recordPath, videoCuts, audioCuts, frameRate, sampleRate, cutOff);
+	}
+	
 	private final void recordUpdated(String line) {
-		if(first) {
-			long time = System.nanoTime();
-			
-			if(logger.isDebugEnabled()) {
-				logger.debug("First data: time={}", time);
-			}
-			
-			audioTimeDelay = (audio.firstDataTime() - time) * 2.0 / 3.0 * 1e-9;
-			
-			if(logger.isDebugEnabled()) {
-				logger.debug("audioTimeDelay={}", audioTimeDelay);
-			}
-			
-			first = false;
+		if(logger.isDebugEnabled()) {
+			logger.debug("FFmpeg | {}", line);
 		}
-		
-		if(logger.isDebugEnabled())
-			logger.debug("FFMpeg | {}", line);
 		
 		Matcher matcher = PATTERN_LINE_PROGRESS.matcher(line);
 		if(!matcher.matches()) return; // Ignore non-progress lines
@@ -152,9 +137,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(audioVolume.volume() > DRMConstants.DEFAULT_SILENCE_THRESHOLD) {
 			hasLastAudioTime = true;
 			
-			Cut.OfDouble videoCut;
-			if(pauseTimeAudio > 0.0
-					&& (videoCut = pendingPauseCuts.poll()) != null) {
+			if(pauseTimeAudio > 0.0 && pendingPauseCutsCount > 0) {
 				double startTime = pauseTimeAudio;
 				double endTime = audioVolume.time();
 				
@@ -165,10 +148,11 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 					logger.debug("Cut audio: {}", cutAudio);
 				}
 				
+				--pendingPauseCutsCount;
 				pauseTimeAudio = -1.0;
 			}
 		} else if(hasLastAudioTime) {
-			double audioTime = audioVolume.time();// - audioTimeDelay;
+			double audioTime = audioVolume.time();
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("First silence: time={}, volume={}", audioTime, audioVolume.volume());
@@ -190,16 +174,25 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		manager.tracker(tracker);
 		manager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(RecordEvent.UPDATE, new Pair<>(context, manager)));
 		process = context.processManager().ffmpeg(this::recordUpdated);
+		
 		String windowTitle = context.browserContext().title();
 		String audioDeviceName = context.audioDeviceName();
-		String command = context.commandFactory().recordCommand(audioDeviceName, frameRate, sampleRate, windowTitle, audioOffset, recordPath);
-		if(logger.isDebugEnabled())
+		double recordFrameRate = 60.0; // TODO: Make configurable
+		String command = context.commandFactory().recordCommand(
+			audioDeviceName, recordFrameRate, frameRate, sampleRate, windowTitle, recordPath
+		);
+		
+		if(logger.isDebugEnabled()) {
 			logger.debug("Record command: ffmpeg{}", command);
+		}
+		
 		process.execute(command);
+		
 		// Catch any FFMpeg startup errors (such as incorrect arguments, etc.)
 		(threadInit = Threads.newThreadUnmanaged(() -> {
 			try {
 				int code = process.waitFor();
+				
 				// Process exited early with an error
 				if(code != 0) {
 					exception.set(new IllegalStateException("FFMpeg exited with error code " + code));
@@ -216,21 +209,23 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			}
 		})).start();
 		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Waiting for initialization to finish...");
+		}
 		
 		// Wait for the initialization status to finish
 		mtxRecordStart.await();
 		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Initialization done, has exception=" + (exception.get() != null));
+		}
 		
 		// Throw thrown exception, if any
 		Exception ex = exception.getAndSet(null);
 		if(ex != null) throw ex;
 	}
 	
-	private final void pauseRecord(PlaybackData data, double recordTime) {
+	private final void pauseRecord(PlaybackData data, double recordVideoTime) {
 		if(videoPlaying.compareAndSet(false, true)) {
 			return; // Video already playing
 		}
@@ -239,15 +234,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Record paused");
 		}
 		
-		// Only set to the new value, if unset
-		if(pauseTime < 0.0) {
-			pauseTime = recordTime;
+		// Only set the new value, if unset
+		if(pauseTimeVideo < 0.0) {
+			pauseTimeVideo = recordVideoTime;
 		}
-		
-		waitPlaybackTime = data.time;
 	}
 	
-	private final void resumeRecord(PlaybackData data, double recordTime) {
+	private final void resumeRecord(PlaybackData data, double recordVideoTime) {
 		if(videoPlaying.compareAndSet(false, true)) {
 			return; // Video already playing
 		}
@@ -256,12 +249,12 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Record resumed");
 		}
 		
-		if(pauseTime < 0.0) {
+		if(pauseTimeVideo < 0.0) {
 			return; // Ignore invalid times
 		}
 		
-		double startTime = lastWaitTime + 0.5 / frameRate;// pauseTime;
-		double endTime = firstResumeTime;// recordTime;
+		double startTime = includeVideoFrame(lastWaitTime);
+		double endTime = recordVideoTime;
 		Cut.OfDouble cutVideo = new Cut.OfDouble(startTime, endTime);
 		videoCuts.add(cutVideo);
 		
@@ -269,31 +262,37 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Cut video: {}", cutVideo);
 		}
 		
-		pendingPauseCuts.add(cutVideo);
-		
-		pauseTime = -1.0;
+		++pendingPauseCutsCount;
+		pauseTimeVideo = -1.0;
 	}
 	
 	private final void closeProcess() throws Exception {
-		if(!recordActive.get()) return; // Already closed
-		
-		if(logger.isDebugEnabled())
-			logger.debug("Sending quit command to the recording process...");
+		if(!recordActive.get()) {
+			return; // Already closed
+		}
 		
 		Process p = process.process();
-		// Gracefully quit the recording process
-		byte[] cmdQuit = "q".getBytes();
-		p.getOutputStream().write(cmdQuit);
-		p.getOutputStream().flush();
+		OutputStream os = p.getOutputStream();
 		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
+			logger.debug("Sending quit command to the recording process...");
+		}
+		
+		// Gracefully quit the recording process
+		os.write("q".getBytes());
+		os.flush();
+		
+		if(logger.isDebugEnabled()) {
 			logger.debug("Waiting 5 seconds...");
+		}
 		
 		boolean exited = p.waitFor(5, TimeUnit.SECONDS);
 		
 		if(!exited) {
-			if(logger.isDebugEnabled())
+			if(logger.isDebugEnabled()) {
 				logger.debug("Process not exited. Interrupting the recording process...");
+			}
+			
 			// Windows-only for now
 			if(OSUtils.isWindows()) {
 				// Interrupt the process, so the file is saved properly
@@ -301,11 +300,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 					WindowsKill.interrupt(pid);
 				}
 			}
+			
 			process.close();
 		}
 		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Process {} closed.", exited ? "gracefully" : "forcibly");
+		}
 		
 		process = null;
 		recordActive.set(false);
@@ -317,8 +318,9 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				audio.close();
 			} catch(SocketException ex) {
 				// Ignore "Connection reset" exceptions
-				if(!ex.getMessage().equals("Connection reset"))
+				if(!ex.getMessage().equals("Connection reset")) {
 					throw ex;
+				}
 			}
 		}
 	}
@@ -327,66 +329,86 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	public RecordPhaseResult run(Pipeline pipeline) throws Exception {
 		running.set(true);
 		started.set(true);
-		context.eventRegistry().call(RecordEvent.BEGIN, context);
+		
 		try {
+			context.eventRegistry().call(RecordEvent.BEGIN, context);
 			context.playbackEventsHandler(new RecordPhaseHandler());
 			
-			if(logger.isDebugEnabled())
+			if(logger.isDebugEnabled()) {
 				logger.debug("Setting time to 0.0 seconds...");
+			}
 			
 			context.playback().time(0.0, true).then(() -> {
-				if(logger.isDebugEnabled())
+				if(logger.isDebugEnabled()) {
 					logger.debug("Time set to 0.0 seconds. Starting recording...");
+				}
 				
 				(Threads.newThreadUnmanaged(() -> {
 					try {
 						StateMutex mtxAudio = new StateMutex();
 						
-						if(logger.isDebugEnabled())
+						if(logger.isDebugEnabled()) {
 							logger.debug("Unmuting the audio...");
+						}
 						
 						context.playback().unmute().then(() -> {
-							if(logger.isDebugEnabled())
+							if(logger.isDebugEnabled()) {
 								logger.debug("Setting volume to max...");
+							}
 							
 							context.playback().volume(1.0).then(() -> {
-								if(logger.isDebugEnabled())
+								if(logger.isDebugEnabled()) {
 									logger.debug("Audio unmuted and set to max.");
+								}
 								
 								mtxAudio.unlock();
 							});
 						});
 						
-						if(logger.isDebugEnabled())
+						if(logger.isDebugEnabled()) {
 							logger.debug("Waiting for the audio to be prepared...");
+						}
 						
 						mtxAudio.await();
 						
+						if(logger.isDebugEnabled()) {
+							logger.debug("Starting the recording...");
+						}
+						
 						startRecord();
 						
-						if(logger.isDebugEnabled())
+						if(logger.isDebugEnabled()) {
 							logger.debug("Playing the video...");
+						}
 						
 						// Recording has been started, also start the video
 						context.playback().play().then(() -> {
-							if(logger.isDebugEnabled())
+							if(logger.isDebugEnabled()) {
 								logger.debug("Video played.");
+							}
 						});
 					} catch(Exception ex) {
 						exception.set(ex);
+						
+						// An error occurred, unlock to continue
 						mtxDone.unlock();
 					}
 				})).start();
 			});
+			
+			// Wait till either the recording is done or an error occurred
 			mtxDone.await();
-			if(stopped.get()) return null; // Sending null will stop the pipeline
+			
+			if(stopped.get()) {
+				return null; // Sending null will stop the pipeline
+			}
+			
 			// If any exception happened, just throw it
 			Exception ex = exception.get();
 			if(ex != null) throw ex;
+			
 			// If no exception was thrown, create the result
-			RecordInfo recordInfo = new RecordInfo(recordPath, videoCuts, audioCuts, frameRate, sampleRate, audioOffset,
-			                                       new Cut.OfDouble(startCutOff, endCutOff));
-			return new RecordPhaseResult(context, recordInfo);
+			return new RecordPhaseResult(context, recordInfo());
 		} finally {
 			running.set(false);
 			
@@ -395,13 +417,15 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 					context.processManager().closeAll();
 					closeAudio();
 					
-					if(logger.isDebugEnabled())
+					if(logger.isDebugEnabled()) {
 						logger.debug("Closing browser...");
+					}
 					
 					context.browserContext().close();
 					
-					if(logger.isDebugEnabled())
+					if(logger.isDebugEnabled()) {
 						logger.debug("Browser closed.");
+					}
 				} finally {
 					done.set(true);
 					context.eventRegistry().call(RecordEvent.END, context);
@@ -478,12 +502,12 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		private final AtomicBoolean isFirstEvent = new AtomicBoolean(true);
 		
-		private final void maybeSetStartCutOff(PlaybackData data, double recordTime) {
+		private final void maybeSetStartCutOff(PlaybackData data, double recordVideoTime) {
 			if(!isFirstEvent.compareAndSet(true, false)) {
 				return; // Start cut off already set
 			}
 			
-			startCutOff = recordTime - data.time;
+			startCutOff = recordVideoTime - data.time;
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("Start cut off: {}", startCutOff);
@@ -496,31 +520,24 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Record not active, ignore
 			}
 			
-			// Get the current record time as soon as possible in this method
-			double recordTime = recordTime();
+			double recordVideoTime = recordVideoTime();
 			
-			if(!recordPaused.get() && !Double.isNaN(lastWaitTime) && !DRMUtils.eq(lastWaitTime, recordTime)) {
-				firstResumeTime = recordTime;
-				resumeRecord(data, recordTime);
-				
+			if(!recordPaused.get()
+					&& !Double.isNaN(lastWaitTime)
+					&& !DRMUtils.eq(lastWaitTime, recordVideoTime)) {
+				resumeRecord(data, recordVideoTime);
 				lastWaitTime = Double.NaN;
-				firstResumeTime = Double.NaN;
 			}
 			
 			metrics.updatePlayback(data.time, data.frame);
-			maybeSetStartCutOff(data, recordTime);
+			maybeSetStartCutOff(data, recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
 					"Update | time={}, frame={}, record time={}, buffered={}, fps={}",
-					data.time, data.frame, recordTime, data.buffered, metrics.playbackFPS()
+					data.time, data.frame, recordVideoTime, data.buffered, metrics.playbackFPS()
 				);
 			}
-			
-			/*if(recordPaused.get()
-					&& !DRMUtils.eq(waitPlaybackTime, data.time)) {
-				resumeRecord(data, recordTime);
-			}*/
 			
 			tracker.update(data.time);
 		}
@@ -531,9 +548,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Record not active, ignore
 			}
 			
-			// Get the current record time as soon as possible in this method
-			double recordTime = recordTime();
-			lastValidRecordTime = recordTime;
+			double recordVideoTime = recordVideoTime();
+			lastValidRecordTime = recordVideoTime;
 			
 			metrics.updatePlayback(data.time, data.frame);
 			
@@ -541,17 +557,17 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Not resumed, ignore
 			}
 			
-			maybeSetStartCutOff(data, recordTime);
+			maybeSetStartCutOff(data, recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
 					"Wait | time={}, frame={}, record time={}",
-					data.time, data.frame, recordTime
+					data.time, data.frame, recordVideoTime
 				);
 			}
 			
 			if(!videoEnded.get()) {
-				pauseRecord(data, recordTime);
+				pauseRecord(data, recordVideoTime);
 			}
 		}
 		
@@ -561,9 +577,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Record not active, ignore
 			}
 			
-			// Get the current record time as soon as possible in this method
-			double recordTime = recordTime();
-			lastWaitTime = recordTime;
+			double recordVideoTime = recordVideoTime();
+			lastWaitTime = recordVideoTime;
 			
 			metrics.updatePlayback(data.time, data.frame);
 			
@@ -571,17 +586,14 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Not paused, ignore
 			}
 			
-			maybeSetStartCutOff(data, recordTime);
+			maybeSetStartCutOff(data, recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
 					"Resume | time={}, frame={}, record time={}",
-					data.time, data.frame, recordTime
+					data.time, data.frame, recordVideoTime
 				);
 			}
-			
-			// Video is buffered (after wait), can be played
-			//resumeRecord(data, recordTime);
 		}
 		
 		@Override
@@ -590,8 +602,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Record not active, ignore
 			}
 			
-			// Get the current record time as soon as possible in this method
-			double recordTime = recordTime();
+			double recordVideoTime = recordVideoTime();
 			
 			metrics.updatePlayback(data.time, data.frame);
 			
@@ -599,31 +610,33 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Already ended, ignore
 			}
 			
-			maybeSetStartCutOff(data, recordTime);
+			maybeSetStartCutOff(data, recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
 					"Stop | time={}, frame={}, record time={}",
-					data.time, data.frame, recordTime
+					data.time, data.frame, recordVideoTime
 				);
 			}
 			
 			// If the video stopped while waiting (it can happen), use the last resume time
-			endCutOff = (pauseTime > 0.0 ? lastValidRecordTime : recordTime) + 0.5 / frameRate;
+			endCutOff = includeVideoFrame(pauseTimeVideo > 0.0 ? lastValidRecordTime : recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("End cut off: {}", endCutOff);
 			}
 			
 			if(logger.isDebugEnabled()) {
-				logger.debug("DEBUG: pauseTime={}, lastValidRecordTime={}, recordTime={}, pendingPauseDurations::isEmpty={}, pauseTimeAudio={}",
-				             pauseTime, lastValidRecordTime, recordTime, pendingPauseCuts.isEmpty(), pauseTimeAudio);
+				logger.debug(
+					"pauseTimeVideo={}, pauseTimeAudio={}, lastValidRecordTime={}, recordVideoTime={}, pendingPauseCutsCount{}",
+					pauseTimeVideo, pauseTimeAudio, lastValidRecordTime, recordVideoTime, pendingPauseCutsCount
+				);
 			}
 			
 			// Since audio won't update at this point, add audio cut manually
-			if(!pendingPauseCuts.isEmpty()) {
-				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : lastValidRecordTime;
-				double endTime = recordTime;
+			if(pendingPauseCutsCount > 0) {
+				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : includeVideoFrame(lastValidRecordTime);
+				double endTime = recordVideoTime;
 				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
 				audioCuts.add(cutAudio);
 				

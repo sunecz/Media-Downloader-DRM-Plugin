@@ -1,8 +1,5 @@
 package sune.app.mediadownloader.drm.phase;
 
-import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_MAX_LATENCY_SAMPLES;
-import static sune.app.mediadownloader.drm.DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
-
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -51,10 +48,6 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 		this.analyzeDuration = analyzeDuration;
 	}
 	
-	private static final double calculateAudioOffset() {
-		return (-2.0 * AUDIO_MAX_LATENCY_SAMPLES) / AUDIO_OUTPUT_SAMPLE_RATE;
-	}
-	
 	@Override
 	public AnalyzePhaseResult run(Pipeline pipeline) throws Exception {
 		running.set(true);
@@ -62,7 +55,6 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 		context.eventRegistry().call(AnalyzeEvent.BEGIN, context);
 		
 		try {
-			double audioOffset = calculateAudioOffset();
 			int sampleRate = DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
 			double frameRate = DRMConstants.DEFAULT_FRAMERATE;
 			DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
@@ -111,7 +103,7 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 			if(logger.isDebugEnabled())
 				logger.debug("Final record frame rate: {}.", frameRate);
 			
-			return new AnalyzePhaseResult(context, duration, frameRate, sampleRate, audioOffset);
+			return new AnalyzePhaseResult(context, duration, frameRate, sampleRate);
 		} finally {
 			running.set(false);
 			

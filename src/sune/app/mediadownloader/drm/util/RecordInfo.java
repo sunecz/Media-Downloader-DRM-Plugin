@@ -10,17 +10,15 @@ public final class RecordInfo {
 	private final List<Cut.OfDouble> audioCuts;
 	private final double frameRate;
 	private final int sampleRate;
-	private final double audioOffset;
 	private final Cut.OfDouble cutOff;
 	
 	public RecordInfo(Path path, List<Cut.OfDouble> videoCuts, List<Cut.OfDouble> audioCuts, double frameRate,
-			int sampleRate, double audioOffset, Cut.OfDouble cutOff) {
+			int sampleRate, Cut.OfDouble cutOff) {
 		this.path = path;
 		this.videoCuts = videoCuts;
 		this.audioCuts = audioCuts;
 		this.frameRate = frameRate;
 		this.sampleRate = sampleRate;
-		this.audioOffset = audioOffset;
 		this.cutOff = cutOff;
 	}
 	
@@ -42,10 +40,6 @@ public final class RecordInfo {
 	
 	public int sampleRate() {
 		return sampleRate;
-	}
-	
-	public double audioOffset() {
-		return audioOffset;
 	}
 	
 	public Cut.OfDouble cutOff() {

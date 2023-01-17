@@ -134,19 +134,22 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			filesManager.delete(outputRecord);
 		}
 		
-		//filesManager.deleteAll();
+		filesManager.deleteAll();
 	}
 	
 	@Override
 	public PostProcessPhaseResult run(Pipeline pipeline) throws Exception {
 		running.set(true);
 		started.set(true);
-		context.eventRegistry().call(PostProcessEvent.BEGIN, context);
+		
 		try {
+			context.eventRegistry().call(PostProcessEvent.BEGIN, context);
 			postProcess();
+			
 			return new PostProcessPhaseResult(context);
 		} finally {
 			running.set(false);
+			
 			if(!stopped.get()) {
 				done.set(true);
 				context.eventRegistry().call(PostProcessEvent.END, context);

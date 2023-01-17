@@ -15,7 +15,7 @@ import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMLog;
 
-public class RealTimeAudio {
+public final class RealTimeAudio {
 	
 	private static final Logger logger = DRMLog.get();
 	
@@ -33,58 +33,47 @@ public class RealTimeAudio {
 	private volatile ServerSocket server;
 	private volatile Socket socket;
 	
-	private long firstDataTime = -1L;
-	private boolean first = true;
-	
 	public RealTimeAudio(int port) {
 		this.port = checkPort(port);
 	}
 	
 	private static final int checkPort(int port) {
-		if(port < DRMConstants.PORT_MIN || port > DRMConstants.PORT_MAX)
+		if(port < DRMConstants.PORT_MIN || port > DRMConstants.PORT_MAX) {
 			throw new IllegalArgumentException();
+		}
+		
 		return port;
 	}
 	
 	private final void notifyListener(AudioVolume av) {
-		if(listener != null)
+		if(listener != null) {
 			listener.accept(av);
+		}
 	}
 	
 	private final void parseLine(String line) {
 		Matcher matcher;
 		
-		if(first) {
-			long time = System.nanoTime();
+		if(!temp.isTimeValid()
+				&& (matcher = REGEX_TIME.matcher(line)).matches()) {
+			temp.time = Double.valueOf(matcher.group(1));
 			
-			if(logger.isDebugEnabled()) {
-				logger.debug("First audio data: time={}", time);
+			if(temp.isValid()) {
+				notifyListener(temp.setAndReset(volume));
 			}
 			
-			firstDataTime = time;
-			first = false;
+			return; // Line processed
 		}
 		
-		if(!temp.isTimeValid()) {
-			if((matcher = REGEX_TIME.matcher(line)).matches()) {
-				temp.time = Double.valueOf(matcher.group(1));
-				
-				if(temp.isValid())
-					notifyListener(temp.setAndReset(volume));
-				
-				return; // Line processed
+		if(!temp.isVolumeValid()
+				&& (matcher = REGEX_VOLUME.matcher(line)).matches()) {
+			temp.volume = Double.valueOf(matcher.group(1));
+			
+			if(temp.isValid()) {
+				notifyListener(temp.setAndReset(volume));
 			}
-		}
-		
-		if(!temp.isVolumeValid()) {
-			if((matcher = REGEX_VOLUME.matcher(line)).matches()) {
-				temp.volume = Double.valueOf(matcher.group(1));
-				
-				if(temp.isValid())
-					notifyListener(temp.setAndReset(volume));
-				
-				return; // Line processed
-			}
+			
+			return; // Line processed
 		}
 	}
 	
@@ -92,13 +81,15 @@ public class RealTimeAudio {
 		try(ServerSocket s = new ServerSocket(port)) {
 			server = s;
 			
-			if(logger.isDebugEnabled())
+			if(logger.isDebugEnabled()) {
 				logger.debug("Waiting for a socket...");
+			}
 			
 			socket = server.accept();
 			
-			if(logger.isDebugEnabled())
+			if(logger.isDebugEnabled()) {
 				logger.debug("Socket connected");
+			}
 			
 			try(BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
 				for(String line; (line = reader.readLine()) != null; parseLine(line));
@@ -121,19 +112,21 @@ public class RealTimeAudio {
 			thread = null;
 		}
 		
-		if(server != null) server.close();
-		if(socket != null) socket.close();
+		if(server != null) {
+			server.close();
+		}
 		
-		if(exception != null)
+		if(socket != null) {
+			socket.close();
+		}
+		
+		if(exception != null) {
 			throw exception;
+		}
 	}
 	
 	public AudioVolume volume() {
 		return volume;
-	}
-	
-	public long firstDataTime() {
-		return firstDataTime;
 	}
 	
 	public static final class AudioVolume {
