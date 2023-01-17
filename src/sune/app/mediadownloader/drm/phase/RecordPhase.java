@@ -506,7 +506,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 				return; // Start cut off already set
 			}
 			
-			startCutOff = recordVideoTime - data.time;
+			startCutOff = recordVideoTime;
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("Start cut off: {}", startCutOff);
