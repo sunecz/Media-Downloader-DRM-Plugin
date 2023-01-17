@@ -48,7 +48,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final DRMContext context;
 	private final Path recordPath;
 	private final double duration;
-	private final double frameRate;
+	private final double recordFrameRate;
+	private final double outputFrameRate;
 	private final int sampleRate;
 	
 	private final RecordMetrics metrics = new RecordMetrics();
@@ -84,11 +85,13 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final AtomicBoolean paused = new AtomicBoolean();
 	private final AtomicBoolean stopped = new AtomicBoolean();
 	
-	public RecordPhase(DRMContext context, double duration, double frameRate, int sampleRate) {
+	public RecordPhase(DRMContext context, double duration, double recordFrameRate, double outputFrameRate,
+			int sampleRate) {
 		this.context = context;
 		this.recordPath = ensureMKVPath(context.configuration().output());
 		this.duration = duration;
-		this.frameRate = frameRate;
+		this.recordFrameRate = recordFrameRate;
+		this.outputFrameRate = outputFrameRate;
 		this.sampleRate = sampleRate;
 	}
 	
@@ -99,16 +102,16 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	}
 	
 	private final double recordVideoTime() {
-		return Math.floor(metrics.recordTime() * frameRate) / frameRate;
+		return Math.floor(metrics.recordTime() * outputFrameRate) / outputFrameRate;
 	}
 	
 	private final double includeVideoFrame(double recordVideoTime) {
-		return recordVideoTime + 0.5 / frameRate;
+		return recordVideoTime + 0.5 / outputFrameRate;
 	}
 	
 	private final RecordInfo recordInfo() {
 		Cut.OfDouble cutOff = new Cut.OfDouble(startCutOff, endCutOff);
-		return new RecordInfo(recordPath, videoCuts, audioCuts, frameRate, sampleRate, cutOff);
+		return new RecordInfo(recordPath, videoCuts, audioCuts, outputFrameRate, sampleRate, cutOff);
 	}
 	
 	private final void recordUpdated(String line) {
@@ -176,9 +179,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		
 		String windowTitle = context.browserContext().title();
 		String audioDeviceName = context.audioDeviceName();
-		double recordFrameRate = 60.0; // TODO: Make configurable
 		String command = context.commandFactory().recordCommand(
-			audioDeviceName, recordFrameRate, frameRate, sampleRate, windowTitle, recordPath
+			audioDeviceName, recordFrameRate, outputFrameRate, sampleRate, windowTitle, recordPath
 		);
 		
 		if(logger.isDebugEnabled()) {
@@ -534,7 +536,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			if(logger.isDebugEnabled()) {
 				logger.debug(
 					"Update | time={}, frame={}, record time={}, buffered={}, fps={}",
-					data.time, data.frame, recordVideoTime, data.buffered, metrics.playbackFPS()
+					data.time, data.frame, recordVideoTime, data.buffered, metrics.playbackFrameRate()
 				);
 			}
 			

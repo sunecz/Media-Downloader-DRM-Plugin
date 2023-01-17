@@ -13,12 +13,13 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.StateMutex;
+import sune.app.mediadownloader.drm.DRMConfiguration;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.AnalyzeEvent;
-import sune.app.mediadownloader.drm.integration.DRMPluginConfiguration;
 import sune.app.mediadownloader.drm.tracker.AnalyzeTracker;
+import sune.app.mediadownloader.drm.util.Environment;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.RecordMetrics;
@@ -29,7 +30,6 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	
 	private final DRMContext context;
 	private final double duration;
-	private final double analyzeDuration;
 	
 	private final RecordMetrics metrics = new RecordMetrics();
 	private final StateMutex mtxDone = new StateMutex();
@@ -42,68 +42,103 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	private final AtomicBoolean paused = new AtomicBoolean();
 	private final AtomicBoolean stopped = new AtomicBoolean();
 
-	public AnalyzePhase(DRMContext context, double duration, double analyzeDuration) {
+	public AnalyzePhase(DRMContext context, double duration) {
 		this.context = context;
 		this.duration = duration;
-		this.analyzeDuration = analyzeDuration;
 	}
 	
 	@Override
 	public AnalyzePhaseResult run(Pipeline pipeline) throws Exception {
 		running.set(true);
 		started.set(true);
-		context.eventRegistry().call(AnalyzeEvent.BEGIN, context);
 		
 		try {
+			context.eventRegistry().call(AnalyzeEvent.BEGIN, context);
+			
+			DRMConfiguration configuration = context.configuration();
+			double recordFrameRate = DRMConstants.DEFAULT_FRAMERATE;
+			double outputFrameRate = DRMConstants.DEFAULT_FRAMERATE;
 			int sampleRate = DRMConstants.AUDIO_OUTPUT_SAMPLE_RATE;
-			double frameRate = DRMConstants.DEFAULT_FRAMERATE;
-			DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
 			
-			double defaultFps = configuration.recordDefaultFps();
-			if(defaultFps > 0.0) {
-				frameRate = defaultFps;
+			double configRecordFrameRate = configuration.recordFrameRate();
+			if(configRecordFrameRate > 0.0) {
+				recordFrameRate = configRecordFrameRate;
 				
-				if(logger.isDebugEnabled())
-					logger.debug("Record frame rate set from configuration (frameRate={}).", frameRate);
-			}
-			
-			boolean useMediaFps = configuration.recordUseMediaFps();
-			if(useMediaFps) {
-				Media media = context.configuration().media();
-				VideoMediaBase video = Media.findOfType(media, MediaType.VIDEO);
-				double mediaFps = video.frameRate();
-				
-				if(mediaFps > 0.0) {
-					frameRate = mediaFps;
-					
-					if(logger.isDebugEnabled())
-						logger.debug("Record frame rate set from media (frameRate={}).", frameRate);
+				if(logger.isDebugEnabled()) {
+					logger.debug("Record frame rate set from configuration (frameRate={}).", recordFrameRate);
 				}
 			}
 			
-			if(context.configuration().detectFPS()) {
+			boolean configUseDisplayRefreshRate = configuration.recordUseDisplayRefreshRate();
+			if(configUseDisplayRefreshRate) {
+				double displayRefreshRate = Environment.instance().displayRefreshRate();
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Detected display refresh rate: {} Hz.", displayRefreshRate);
+				}
+				
+				if(displayRefreshRate > 0.0) {
+					recordFrameRate = displayRefreshRate;
+					
+					if(logger.isDebugEnabled()) {
+						logger.debug("Record frame rate set from display refresh rate (frameRate={}).", recordFrameRate);
+					}
+				}
+			}
+			
+			double configOutputFrameRate = configuration.outputFrameRate();
+			if(configOutputFrameRate > 0.0) {
+				outputFrameRate = configOutputFrameRate;
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Output frame rate set from configuration (frameRate={}).", outputFrameRate);
+				}
+			}
+			
+			boolean configUseMediaFrameRate = configuration.outputUseMediaFrameRate();
+			if(configUseMediaFrameRate) {
+				Media media = configuration.media();
+				VideoMediaBase video = Media.findOfType(media, MediaType.VIDEO);
+				double mediaFrameRate = video.frameRate();
+				
+				if(mediaFrameRate > 0.0) {
+					outputFrameRate = mediaFrameRate;
+					
+					if(logger.isDebugEnabled()) {
+						logger.debug("Output frame rate set from media (frameRate={}).", outputFrameRate);
+					}
+				}
+			}
+			
+			if(configuration.detectFrameRate()) {
+				double analyzeDuration = configuration.analyzeDuration();
 				tracker = new AnalyzeTracker(analyzeDuration);
 				TrackerManager manager = context.trackerManager();
 				manager.tracker(tracker);
 				manager.addEventListener(TrackerEvent.UPDATE, (t) -> context.eventRegistry().call(AnalyzeEvent.UPDATE, new Pair<>(context, manager)));
-				context.playbackEventsHandler(new AnalyzePhaseHandler());
+				context.playbackEventsHandler(new AnalyzePhaseHandler(analyzeDuration));
 				context.playback().play();
 				mtxDone.await();
 				if(stopped.get()) return null; // Sending null will stop the pipeline
 				
-				double analyzedFps = metrics.playbackFPS();
-				if(analyzedFps > 0.0) {
-					frameRate = analyzedFps;
+				double analyzedFrameRate = metrics.playbackFrameRate();
+				if(analyzedFrameRate > 0.0) {
+					outputFrameRate = analyzedFrameRate;
 					
-					if(logger.isDebugEnabled())
-						logger.debug("Record frame rate set from analysis (frameRate={}).", frameRate);
+					if(logger.isDebugEnabled()) {
+						logger.debug("Output frame rate set from analysis (frameRate={}).", outputFrameRate);
+					}
 				}
 			}
 			
-			if(logger.isDebugEnabled())
-				logger.debug("Final record frame rate: {}.", frameRate);
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Final settings: recordFrameRate={}, outputFrameRate={}, sampleRate={}.",
+					recordFrameRate, outputFrameRate, sampleRate
+				);
+			}
 			
-			return new AnalyzePhaseResult(context, duration, frameRate, sampleRate);
+			return new AnalyzePhaseResult(context, duration, recordFrameRate, outputFrameRate, sampleRate);
 		} finally {
 			running.set(false);
 			
@@ -171,16 +206,31 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 	
 	private final class AnalyzePhaseHandler implements PlaybackEventsHandler {
 		
+		private final double analyzeDuration;
+		
+		public AnalyzePhaseHandler(double analyzeDuration) {
+			this.analyzeDuration = analyzeDuration;
+		}
+		
 		@Override
 		public void updated(PlaybackData data) {
 			metrics.updatePlayback(data.time, data.frame);
-			if(logger.isDebugEnabled())
-				logger.debug("Analyze update | time={}, frame={}, buffered={}, fps={}", data.time, data.frame, data.buffered, metrics.playbackFPS());
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Analyze update | time={}, frame={}, buffered={}, frameRate={}",
+					data.time, data.frame, data.buffered, metrics.playbackFrameRate()
+				);
+			}
+			
 			tracker.setIsBuffering(!analyzeBuffered);
 			tracker.update(data.time);
+			
 			if(analyzeBuffered) {
-				if(logger.isDebugEnabled())
+				if(logger.isDebugEnabled()) {
 					logger.debug("Analyze measuring");
+				}
+				
 				if(data.time >= analyzeDuration) {
 					context.playback().pause().then(() -> {
 						mtxDone.unlock();
@@ -188,10 +238,13 @@ public class AnalyzePhase implements PipelineTask<AnalyzePhaseResult> {
 				}
 			} else {
 				if(data.buffered >= analyzeDuration) {
-					if(logger.isDebugEnabled())
+					if(logger.isDebugEnabled()) {
 						logger.debug("Analyze buffered");
+					}
+					
 					analyzeBuffered = true;
 					metrics.reset();
+					
 					context.playback().pause().then(() -> {
 						context.playback().time(0.0, true).then(() -> {
 							context.playback().play();

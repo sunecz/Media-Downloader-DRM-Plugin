@@ -31,31 +31,11 @@ public final class DRMCommandFactory {
 		builder.append(" -copyts -start_at_zero"); // Help the synchronization
 		builder.append(" -i title=\"%{window_title}s\""); // Record specific window
 		
-		switch(configuration.quality()) {
-			case LOSSLESS:
-				builder.append(" -c:v libx264rgb -r %{frame_rate}s -qp 0 -pix_fmt rgb24 -g 1"); // Output video settings
-				builder.append(" -c:a pcm_s16le -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-				builder.append(" -preset ultrafast -tune zerolatency"); // Performance setting
-				break;
-			case HIGH:
-				builder.append(" -c:v libx264rgb -r %{frame_rate}s -crf 0 -pix_fmt rgb24"); // Output video settings
-				builder.append(" -c:a pcm_s16le -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-				builder.append(" -preset ultrafast -tune zerolatency"); // Performance setting
-				break;
-			case MEDIUM:
-				builder.append(" -c:v libx264 -r %{frame_rate}s -crf 17 -pix_fmt yuv420p"); // Output video settings
-				builder.append(" -c:a aac -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-				builder.append(" -preset ultrafast -tune zerolatency"); // Performance setting
-				break;
-			case LOW:
-				builder.append(" -c:v libx264 -r %{frame_rate}s -crf 23 -pix_fmt yuv420p"); // Output video settings
-				builder.append(" -c:a aac -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
-				builder.append(" -preset ultrafast -tune zerolatency"); // Performance setting
-				break;
-			default:
-				throw new IllegalStateException("Invalid quality");
-		}
+		configuration.quality().recordCommandArguments(builder);
 		
+		builder.append(" -r %{frame_rate}s"); // Output video settings
+		builder.append(" -ar %{sample_rate}d -channel_layout stereo"); // Output audio settings
+		builder.append(" -preset ultrafast -tune zerolatency"); // Performance setting
 		builder.append(" -vf mpdecimate"); // Make the video playback smoother
 		
 		StringBuilder af = new StringBuilder();
@@ -85,33 +65,11 @@ public final class DRMCommandFactory {
 		return command;
 	}
 	
-	public String videoProcessorCommandArguments() {
-		switch(configuration.quality()) {
-			case LOSSLESS:
-				return "-c:v libx264rgb -preset ultrafast -tune film -qp 0 -pix_fmt rgb24 -g 1";
-			case HIGH:
-				return "-c:v libx264rgb -preset ultrafast -tune film -crf 0 -pix_fmt rgb24";
-			case MEDIUM:
-				return "-c:v libx264 -preset ultrafast -tune film -crf 17 -pix_fmt yuv420p";
-			case LOW:
-				return "-c:v libx264 -preset ultrafast -tune film -crf 23 -pix_fmt yuv420p";
-			default:
-				throw new IllegalStateException("Invalid quality");
-		}
+	public String videoCommandArguments() {
+		return configuration.quality().videoCommandArguments();
 	}
 	
-	public String audioProcessorCommandArguments() {
-		switch(configuration.quality()) {
-			case LOSSLESS:
-				return "-c:a aac -b:a 320k";
-			case HIGH:
-				return "-c:a aac -b:a 256k";
-			case MEDIUM:
-				return "-c:a aac -b:a 160k";
-			case LOW:
-				return "-c:a aac -b:a 128k";
-			default:
-				throw new IllegalStateException("Invalid quality");
-		}
+	public String audioCommandArguments() {
+		return configuration.quality().audioCommandArguments();
 	}
 }

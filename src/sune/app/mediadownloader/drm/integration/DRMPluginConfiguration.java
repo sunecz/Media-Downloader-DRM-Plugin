@@ -14,15 +14,16 @@ import sune.app.mediadown.gui.form.field.TranslatableSelectField.ValueTransforme
 import sune.app.mediadown.language.Translation;
 import sune.app.mediadown.plugin.PluginConfiguration;
 import sune.app.mediadown.plugin.Plugins;
-import sune.app.mediadownloader.drm.DRMConfiguration;
 import sune.app.mediadownloader.drm.DRMConstants;
+import sune.app.mediadownloader.drm.util.Quality;
 
 public class DRMPluginConfiguration {
 	
-	private static final String PROPERTY_RECORD_USE_MEDIA_FPS = "record.useMediaFps";
-	private static final String PROPERTY_RECORD_DEFAULT_FPS = "record.defaultFps";
+	private static final String PROPERTY_RECORD_USE_DISPLAY_REFRESH_RATE = "record.useDisplayRefreshRate";
+	private static final String PROPERTY_RECORD_DEFAULT_FRAME_RATE = "record.defaultFrameRate";
+	private static final String PROPERTY_OUTPUT_USE_MEDIA_FRAME_RATE = "output.useMediaFrameRate";
+	private static final String PROPERTY_OUTPUT_DEFAULT_FRAME_RATE = "output.defaultFrameRate";
 	private static final String PROPERTY_PROCESS_KEEP_RECORD_FILE = "process.keepRecordFile";
-	private static final String PROPERTY_PROCESS_KEEP_TEMPORARY_FILES = "process.keepTemporaryFiles";
 	private static final String PROPERTY_QUALITY = "quality";
 	private static final String PROPERTY_DEBUG = "debug";
 	
@@ -31,11 +32,12 @@ public class DRMPluginConfiguration {
 	
 	private final PluginConfiguration configuration;
 	
-	private boolean record_useMediaFps;
-	private double record_defaultFps;
+	private boolean record_useDisplayRefreshRate;
+	private double record_defaultFrameRate;
+	private boolean output_useMediaFrameRate;
+	private double output_defaultFrameRate;
 	private boolean process_keepRecordFile;
-	private boolean process_keepTemporaryFiles;
-	private DRMConfiguration.Quality quality;
+	private Quality quality;
 	private boolean debug;
 	
 	private DRMPluginConfiguration(PluginConfiguration configuration) {
@@ -66,25 +68,28 @@ public class DRMPluginConfiguration {
 		PluginConfiguration.Builder builder = new PluginConfiguration.Builder(configurationName);
 		String group = builder.name() + ".general";
 		
-		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_RECORD_USE_MEDIA_FPS)
+		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_RECORD_USE_DISPLAY_REFRESH_RATE)
 			.inGroup(group)
 			.withDefaultValue(true));
-		builder.addProperty(ConfigurationProperty.ofDecimal(PROPERTY_RECORD_DEFAULT_FPS)
+		builder.addProperty(ConfigurationProperty.ofDecimal(PROPERTY_RECORD_DEFAULT_FRAME_RATE)
+			.inGroup(group)
+			.withDefaultValue(DRMConstants.DEFAULT_FRAMERATE));
+		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_OUTPUT_USE_MEDIA_FRAME_RATE)
+			.inGroup(group)
+			.withDefaultValue(true));
+		builder.addProperty(ConfigurationProperty.ofDecimal(PROPERTY_OUTPUT_DEFAULT_FRAME_RATE)
 			.inGroup(group)
 			.withDefaultValue(DRMConstants.DEFAULT_FRAMERATE));
 		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_PROCESS_KEEP_RECORD_FILE)
 			.inGroup(group)
 			.withDefaultValue(false));
-		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_PROCESS_KEEP_TEMPORARY_FILES)
+		builder.addProperty(ConfigurationProperty.ofType(PROPERTY_QUALITY, Quality.class)
 			.inGroup(group)
-			.withDefaultValue(false));
-		builder.addProperty(ConfigurationProperty.ofType(PROPERTY_QUALITY, DRMConfiguration.Quality.class)
-			.inGroup(group)
-			.withFactory(() -> Stream.of(DRMConfiguration.Quality.values())
+			.withFactory(() -> Stream.of(Quality.values())
 			                         .map(Enum::name)
 			                         .collect(Collectors.toList()))
-			.withTransformer(Enum::name, DRMConfiguration.Quality::of)
-			.withDefaultValue(DRMConfiguration.Quality.LOSSLESS.name()));
+			.withTransformer(Enum::name, Quality::of)
+			.withDefaultValue(Quality.LOSSLESS.name()));
 		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_DEBUG)
 			.inGroup(group)
 			.withDefaultValue(false));
@@ -92,8 +97,8 @@ public class DRMPluginConfiguration {
 		// <---- Register custom fields
 		
 		if(!customFieldsRegistered) {
-			registerFormField(isOfEnumClass(DRMConfiguration.Quality.class, DRMConfiguration.Quality::validValues,
-				ValueTransformer.of(DRMConfiguration.Quality::of, Enum::name, localValueTranslator(
+			registerFormField(isOfEnumClass(Quality.class, Quality::validValues,
+				ValueTransformer.of(Quality::of, Enum::name, localValueTranslator(
 					PROPERTY_QUALITY, Enum::name
 				))
 			));
@@ -116,31 +121,36 @@ public class DRMPluginConfiguration {
 	}
 	
 	private final void loadFields() {
-		record_useMediaFps = configuration.booleanValue(PROPERTY_RECORD_USE_MEDIA_FPS);
-		record_defaultFps = configuration.doubleValue(PROPERTY_RECORD_DEFAULT_FPS);
+		record_useDisplayRefreshRate = configuration.booleanValue(PROPERTY_RECORD_USE_DISPLAY_REFRESH_RATE);
+		record_defaultFrameRate = configuration.doubleValue(PROPERTY_RECORD_DEFAULT_FRAME_RATE);
+		output_useMediaFrameRate = configuration.booleanValue(PROPERTY_OUTPUT_USE_MEDIA_FRAME_RATE);
+		output_defaultFrameRate = configuration.doubleValue(PROPERTY_OUTPUT_DEFAULT_FRAME_RATE);
 		process_keepRecordFile = configuration.booleanValue(PROPERTY_PROCESS_KEEP_RECORD_FILE);
-		process_keepTemporaryFiles = configuration.booleanValue(PROPERTY_PROCESS_KEEP_TEMPORARY_FILES);
-		quality = DRMConfiguration.Quality.of(configuration.stringValue(PROPERTY_QUALITY));
+		quality = Quality.of(configuration.stringValue(PROPERTY_QUALITY));
 		debug = configuration.booleanValue(PROPERTY_DEBUG);
 	}
 	
-	public boolean recordUseMediaFps() {
-		return record_useMediaFps;
+	public boolean recordUseDisplayRefreshRate() {
+		return record_useDisplayRefreshRate;
 	}
 	
-	public double recordDefaultFps() {
-		return record_defaultFps;
+	public double recordDefaultFrameRate() {
+		return record_defaultFrameRate;
+	}
+	
+	public boolean outputUseMediaFrameRate() {
+		return output_useMediaFrameRate;
+	}
+	
+	public double outputDefaultFrameRate() {
+		return output_defaultFrameRate;
 	}
 	
 	public boolean processKeepRecordFile() {
 		return process_keepRecordFile;
 	}
 	
-	public boolean processKeepTemporaryFiles() {
-		return process_keepTemporaryFiles;
-	}
-	
-	public DRMConfiguration.Quality quality() {
+	public Quality quality() {
 		return quality;
 	}
 	

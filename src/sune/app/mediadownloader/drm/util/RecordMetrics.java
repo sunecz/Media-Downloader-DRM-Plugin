@@ -7,11 +7,11 @@ public final class RecordMetrics {
 	private static final double SECS_IN_NANO = 1e-9;
 	
 	private static final int MEMORY_CAPACITY = 128;
-	private static final int FPS_MIN = 10;
-	private static final int FPS_MAX = 90;
+	private static final int FRAME_RATE_MIN = 10;
+	private static final int FRAME_RATE_MAX = 90;
 	
-	private final FPSCalculator fpsCalc = new FPSCalculator(MEMORY_CAPACITY);
-	private final MemoryHistogram histogram = new MemoryHistogram(FPS_MIN, FPS_MAX, MEMORY_CAPACITY);
+	private final FrameRateCalculator frameRateCalc = new FrameRateCalculator(MEMORY_CAPACITY);
+	private final MemoryHistogram histogram = new MemoryHistogram(FRAME_RATE_MIN, FRAME_RATE_MAX, MEMORY_CAPACITY);
 	
 	private double recordTime;
 	
@@ -29,8 +29,8 @@ public final class RecordMetrics {
 		return recordTime + (recordTimeAccumulator + (now - lastRecordUpdateTime)) * SECS_IN_NANO;
 	}
 	
-	private final int histogramFPS(double fps) {
-		return Math.max(FPS_MIN, Math.min((int) fps, FPS_MAX));
+	private final int histogramFrameRate(double frameRate) {
+		return Math.max(FRAME_RATE_MIN, Math.min((int) frameRate, FRAME_RATE_MAX));
 	}
 	
 	public final void updatePlayback(double time, int frames) {
@@ -38,8 +38,8 @@ public final class RecordMetrics {
 		int df = frames - lastPlaybackFrames;
 		if(dt == 0.0) return; // No update
 		double delta = df * (1.0 / dt);
-		fpsCalc.add(delta);
-		histogram.add(histogramFPS(fpsCalc.get()));
+		frameRateCalc.add(delta);
+		histogram.add(histogramFrameRate(frameRateCalc.get()));
 		lastPlaybackFrames = frames;
 		lastPlaybackTime = time;
 	}
@@ -52,7 +52,7 @@ public final class RecordMetrics {
 		return recordTime(System.nanoTime());
 	}
 	
-	public final void updateRecord(double time, int frames, double fps) {
+	public final void updateRecord(double time, int frames, double frameRate) {
 		long now = System.nanoTime();
 		recordTime = time;
 		
@@ -69,16 +69,16 @@ public final class RecordMetrics {
 	public final void reset() {
 		lastPlaybackFrames = 0;
 		lastPlaybackTime = 0.0;
-		fpsCalc.reset();
+		frameRateCalc.reset();
 		histogram.reset();
 		
 	}
 	
-	public final int playbackFPS() {
+	public final int playbackFrameRate() {
 		return histogram.average();
 	}
 	
-	private static final class FPSCalculator {
+	private static final class FrameRateCalculator {
 		
 		private int memoryIdxR = 0;
 		private int memoryIdxW = 0;
@@ -86,9 +86,9 @@ public final class RecordMetrics {
 		private final int memoryCap;
 		private final double[] memory;
 		private double memorySum = 0.0;
-		private double fps = 0.0;
+		private double frameRate = 0.0;
 		
-		public FPSCalculator(int capacity) {
+		public FrameRateCalculator(int capacity) {
 			this.memoryCap = capacity;
 			this.memory = new double[capacity];
 		}
@@ -102,11 +102,11 @@ public final class RecordMetrics {
 			memory[memoryIdxW] = delta;
 			memoryIdxW = (++memoryIdxW) % memoryCap;
 			memorySum += delta - value;
-			fps = memorySum / memoryLen;
+			frameRate = memorySum / memoryLen;
 		}
 		
 		public final void reset() {
-			fps = 0.0;
+			frameRate = 0.0;
 			memoryIdxR = 0;
 			memoryIdxW = 0;
 			memoryLen = 0;
@@ -115,7 +115,7 @@ public final class RecordMetrics {
 		}
 		
 		public final double get() {
-			return fps;
+			return frameRate;
 		}
 	}
 	

@@ -17,7 +17,7 @@ public class InitializationPhaseInput implements PipelineResult<AnalyzePhaseResu
 	
 	@Override
 	public PipelineTask<AnalyzePhaseResult> process(Pipeline pipeline) throws Exception {
-		return new AnalyzePhase(context, duration, context.configuration().analyzeDuration());
+		return new AnalyzePhase(context, duration);
 	}
 	
 	@Override

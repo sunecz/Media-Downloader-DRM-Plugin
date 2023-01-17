@@ -18,7 +18,6 @@ import sune.app.mediadownloader.drm.DRMCommandFactory;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.PostProcessEvent;
-import sune.app.mediadownloader.drm.integration.DRMPluginConfiguration;
 import sune.app.mediadownloader.drm.process.SimpleAudioProcessor;
 import sune.app.mediadownloader.drm.process.SimpleVideoProcessor;
 import sune.app.mediadownloader.drm.tracker.PostProcessTracker;
@@ -116,8 +115,8 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 				"script_path", scriptPath,
 				"map_video", '[' + commandVideo.map() + ']',
 				"map_audio", '[' + commandAudio.map() + ']',
-				"args_video", commandFactory.videoProcessorCommandArguments(),
-				"args_audio", commandFactory.audioProcessorCommandArguments(),
+				"args_video", commandFactory.videoCommandArguments(),
+				"args_audio", commandFactory.audioCommandArguments(),
 				"output", output.toAbsolutePath().toString()
 			);
 			
@@ -129,8 +128,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			DRMProcessUtils.throwIfFailedFFMpeg(process.waitFor());
 		}
 		
-		DRMPluginConfiguration configuration = DRMPluginConfiguration.instance();
-		if(!configuration.processKeepRecordFile()) {
+		if(!context.configuration().keepRecordFile()) {
 			filesManager.delete(outputRecord);
 		}
 		

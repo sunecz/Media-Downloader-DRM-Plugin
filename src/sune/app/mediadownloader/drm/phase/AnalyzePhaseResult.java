@@ -9,19 +9,22 @@ public class AnalyzePhaseResult implements PipelineResult<RecordPhaseResult> {
 	
 	private final DRMContext context;
 	private final double duration;
-	private final double frameRate;
+	private final double recordFrameRate;
+	private final double outputFrameRate;
 	private final int sampleRate;
 	
-	public AnalyzePhaseResult(DRMContext context, double duration, double frameRate, int sampleRate) {
+	public AnalyzePhaseResult(DRMContext context, double duration, double recordFrameRate, double outputFrameRate,
+			int sampleRate) {
 		this.context = context;
 		this.duration = duration;
-		this.frameRate = frameRate;
+		this.recordFrameRate = recordFrameRate;
+		this.outputFrameRate = outputFrameRate;
 		this.sampleRate = sampleRate;
 	}
 	
 	@Override
 	public PipelineTask<RecordPhaseResult> process(Pipeline pipeline) throws Exception {
-		return new RecordPhase(context, duration, frameRate, sampleRate);
+		return new RecordPhase(context, duration, recordFrameRate, outputFrameRate, sampleRate);
 	}
 	
 	@Override

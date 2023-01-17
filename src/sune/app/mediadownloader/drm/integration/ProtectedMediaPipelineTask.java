@@ -46,6 +46,7 @@ import sune.app.mediadownloader.drm.event.DRMInstanceEvent;
 import sune.app.mediadownloader.drm.event.PostProcessEvent;
 import sune.app.mediadownloader.drm.event.RecordEvent;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
+import sune.app.mediadownloader.drm.util.Quality;
 
 public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipelineResult> {
 	
@@ -287,15 +288,25 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			
 			// Obtain quality from the configuration
 			DRMPluginConfiguration pluginConfiguration = DRMPluginConfiguration.instance();
-			DRMConfiguration.Quality quality = pluginConfiguration.quality();
+			Quality quality = pluginConfiguration.quality();
+			boolean recordUseDisplayRefreshRate = pluginConfiguration.recordUseDisplayRefreshRate();
+			double recordFrameRate = pluginConfiguration.recordDefaultFrameRate();
+			boolean outputUseMediaFrameRate = pluginConfiguration.outputUseMediaFrameRate();
+			double outputFrameRate = pluginConfiguration.outputDefaultFrameRate();
+			boolean keepRecordFile = pluginConfiguration.processKeepRecordFile();
 			
 			// Configure the DRM
 			DRMConfiguration configuration = new DRMConfiguration.Builder()
-					.output(destination)
-					.media(media)
-					.detectFPS(false) // Do not automatically detect FPS for now
-					.quality(quality)
-					.build();
+				.output(destination)
+				.media(media)
+				.detectFrameRate(false) // Do not automatically detect FPS for now
+				.quality(quality)
+				.recordUseDisplayRefreshRate(recordUseDisplayRefreshRate)
+				.recordFrameRate(recordFrameRate)
+				.outputUseMediaFrameRate(outputUseMediaFrameRate)
+				.outputFrameRate(outputFrameRate)
+				.keepRecordFile(keepRecordFile)
+				.build();
 			
 			// Prepare the DRM instance
 			instance = DRMInstance.withEngine(engine, url, configuration);

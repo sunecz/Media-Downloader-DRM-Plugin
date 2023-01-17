@@ -2,24 +2,36 @@ package sune.app.mediadownloader.drm;
 
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 import sune.app.mediadown.media.Media;
+import sune.app.mediadownloader.drm.util.Quality;
 
 public final class DRMConfiguration {
 	
 	private final Path output;
 	private final Media media;
-	private final boolean detectFPS;
+	private final boolean detectFrameRate;
 	private final double analyzeDuration;
 	private final Quality quality;
+	private final boolean recordUseDisplayRefreshRate;
+	private final double recordFrameRate;
+	private final boolean outputUseMediaFrameRate;
+	private final double outputFrameRate;
+	private final boolean keepRecordFile;
 	
-	private DRMConfiguration(Path output, Media media, boolean detectFPS, double analyzeDuration, Quality quality) {
+	private DRMConfiguration(Path output, Media media, boolean detectFrameRate, double analyzeDuration,
+			Quality quality, boolean recordUseDisplayRefreshRate, double recordFrameRate,
+			boolean outputUseMediaFrameRate, double outputFrameRate, boolean keepRecordFile) {
 		this.output = output;
 		this.media = media;
-		this.detectFPS = detectFPS;
+		this.detectFrameRate = detectFrameRate;
 		this.analyzeDuration = analyzeDuration;
 		this.quality = quality;
+		this.recordUseDisplayRefreshRate = recordUseDisplayRefreshRate;
+		this.recordFrameRate = recordFrameRate;
+		this.outputUseMediaFrameRate = outputUseMediaFrameRate;
+		this.outputFrameRate = outputFrameRate;
+		this.keepRecordFile = keepRecordFile;
 	}
 	
 	public Path output() {
@@ -30,8 +42,8 @@ public final class DRMConfiguration {
 		return media;
 	}
 	
-	public boolean detectFPS() {
-		return detectFPS;
+	public boolean detectFrameRate() {
+		return detectFrameRate;
 	}
 	
 	public double analyzeDuration() {
@@ -42,64 +54,72 @@ public final class DRMConfiguration {
 		return quality;
 	}
 	
-	public static enum Quality {
-		
-		LOSSLESS, HIGH, MEDIUM, LOW;
-		
-		// <---- For configuration purposes
-		
-		private static Quality[] validValues;
-		
-		public static final Quality[] validValues() {
-			if(validValues == null) {
-				validValues = values();
-			}
-			
-			return validValues;
-		}
-		
-		public static final Quality of(String string) {
-			if(string == null || string.isBlank()) {
-				return null;
-			}
-			
-			String normalized = string.strip().toUpperCase();
-			return Stream.of(values())
-					     .filter((v) -> normalized.equals(v.name()))
-					     .findFirst().orElse(null);
-		}
-		
-		@Override
-		public String toString() {
-			return super.toString().toLowerCase();
-		}
-		
-		// ---->
+	public boolean recordUseDisplayRefreshRate() {
+		return recordUseDisplayRefreshRate;
+	}
+	
+	public double recordFrameRate() {
+		return recordFrameRate;
+	}
+	
+	public boolean outputUseMediaFrameRate() {
+		return outputUseMediaFrameRate;
+	}
+	
+	public double outputFrameRate() {
+		return outputFrameRate;
+	}
+	
+	public boolean keepRecordFile() {
+		return keepRecordFile;
 	}
 	
 	public static final class Builder {
 		
 		private static final double DEFAULT_ANALYZE_DURATION = 10.0;
+		private static final double DEFAULT_RECORD_FRAME_RATE = 24.0;
+		private static final double DEFAULT_OUTPUT_FRAME_RATE = 24.0;
 		
 		private Path output;
 		private Media media;
-		private boolean detectFPS;
+		private boolean detectFrameRate;
 		private double analyzeDuration;
 		private Quality quality;
+		private boolean recordUseDisplayRefreshRate;
+		private double recordFrameRate;
+		private boolean outputUseMediaFrameRate;
+		private double outputFrameRate;
+		private boolean keepRecordFile;
 		
 		public Builder() {
 			output = null;
 			media = null;
-			detectFPS = false;
+			detectFrameRate = false;
 			analyzeDuration = DEFAULT_ANALYZE_DURATION;
 			quality = Quality.LOSSLESS;
+			recordUseDisplayRefreshRate = true;
+			recordFrameRate = DEFAULT_RECORD_FRAME_RATE;
+			outputUseMediaFrameRate = true;
+			outputFrameRate = DEFAULT_OUTPUT_FRAME_RATE;
+			keepRecordFile = false;
 		}
 		
 		public DRMConfiguration build() {
-			if(detectFPS && analyzeDuration <= 0.0)
+			if(detectFrameRate && analyzeDuration <= 0.0) {
 				throw new IllegalArgumentException("Analyze duration must be > 0.0.");
+			}
+			
+			if(!recordUseDisplayRefreshRate && recordFrameRate <= 0.0) {
+				throw new IllegalArgumentException("Record frame rate must be > 0.0.");
+			}
+			
+			if(!outputUseMediaFrameRate && outputFrameRate <= 0.0) {
+				throw new IllegalArgumentException("Output frame rate must be > 0.0.");
+			}
+			
 			return new DRMConfiguration(Objects.requireNonNull(output), Objects.requireNonNull(media),
-					detectFPS, analyzeDuration, quality);
+				detectFrameRate, analyzeDuration, quality, recordUseDisplayRefreshRate, recordFrameRate,
+				outputUseMediaFrameRate, outputFrameRate, keepRecordFile);
 		}
 		
 		public Builder output(Path output) {
@@ -112,8 +132,8 @@ public final class DRMConfiguration {
 			return this;
 		}
 		
-		public Builder detectFPS(boolean detectFPS) {
-			this.detectFPS = detectFPS;
+		public Builder detectFrameRate(boolean detectFrameRate) {
+			this.detectFrameRate = detectFrameRate;
 			return this;
 		}
 		
@@ -127,6 +147,31 @@ public final class DRMConfiguration {
 			return this;
 		}
 		
+		public Builder recordUseDisplayRefreshRate(boolean recordUseDisplayRefreshRate) {
+			this.recordUseDisplayRefreshRate = recordUseDisplayRefreshRate;
+			return this;
+		}
+		
+		public Builder recordFrameRate(double recordFrameRate) {
+			this.recordFrameRate = recordFrameRate;
+			return this;
+		}
+		
+		public Builder outputUseMediaFrameRate(boolean outputUseMediaFrameRate) {
+			this.outputUseMediaFrameRate = outputUseMediaFrameRate;
+			return this;
+		}
+		
+		public Builder outputFrameRate(double outputFrameRate) {
+			this.outputFrameRate = outputFrameRate;
+			return this;
+		}
+		
+		public Builder keepRecordFile(boolean keepRecordFile) {
+			this.keepRecordFile = keepRecordFile;
+			return this;
+		}
+		
 		public Path output() {
 			return output;
 		}
@@ -135,8 +180,8 @@ public final class DRMConfiguration {
 			return media;
 		}
 		
-		public boolean detectFPS() {
-			return detectFPS;
+		public boolean detectFrameRate() {
+			return detectFrameRate;
 		}
 		
 		public double analyzeDuration() {
@@ -145,6 +190,26 @@ public final class DRMConfiguration {
 		
 		public Quality quality() {
 			return quality;
+		}
+		
+		public boolean recordUseDisplayRefreshRate() {
+			return recordUseDisplayRefreshRate;
+		}
+		
+		public double recordFrameRate() {
+			return recordFrameRate;
+		}
+		
+		public boolean outputUseMediaFrameRate() {
+			return outputUseMediaFrameRate;
+		}
+		
+		public double outputFrameRate() {
+			return outputFrameRate;
+		}
+		
+		public boolean keepRecordFile() {
+			return keepRecordFile;
 		}
 	}
 }
