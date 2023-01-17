@@ -33,6 +33,9 @@ public class RealTimeAudio {
 	private volatile ServerSocket server;
 	private volatile Socket socket;
 	
+	private long firstDataTime = -1L;
+	private boolean first = true;
+	
 	public RealTimeAudio(int port) {
 		this.port = checkPort(port);
 	}
@@ -50,6 +53,17 @@ public class RealTimeAudio {
 	
 	private final void parseLine(String line) {
 		Matcher matcher;
+		
+		if(first) {
+			long time = System.nanoTime();
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("First audio data: time={}", time);
+			}
+			
+			firstDataTime = time;
+			first = false;
+		}
 		
 		if(!temp.isTimeValid()) {
 			if((matcher = REGEX_TIME.matcher(line)).matches()) {
@@ -116,6 +130,10 @@ public class RealTimeAudio {
 	
 	public AudioVolume volume() {
 		return volume;
+	}
+	
+	public long firstDataTime() {
+		return firstDataTime;
 	}
 	
 	public static final class AudioVolume {

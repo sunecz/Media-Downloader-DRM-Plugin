@@ -20,6 +20,8 @@ public final class DRMCommandFactory {
 		StringBuilder builder = new StringBuilder();
 		builder.append(" -y"); // Rewrite the output file, if it exists
 		
+		builder.append(" -fflags +genpts+igndts");
+		
 		double recordFrameRate = 60.0; // TODO: Make configurable/automatic
 		
 		builder.append(" -f dshow"); // Record audio

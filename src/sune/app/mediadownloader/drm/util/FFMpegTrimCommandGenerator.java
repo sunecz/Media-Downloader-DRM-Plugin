@@ -16,7 +16,7 @@ public final class FFMpegTrimCommandGenerator {
 			String nameSuffix) {
 		this.transform = transform;
 		this.cmdSegmentTrim = DRMUtils.format(
-			"[%s]%s=%s=%%d:%s=%%d,%s[t%s%%d];",
+			"[%s]%s=%s=%%.6f:%s=%%.6f,%s[t%s%%d];",
 			streamDescriptor, fncTrimName, argTrimStart, argTrimEnd, argSetPTS, nameSuffix
 		);
 		this.concatArgs = concatArgs;
@@ -32,12 +32,12 @@ public final class FFMpegTrimCommandGenerator {
 	}
 	
 	public static final FFMpegTrimCommandGenerator forVideo(double frameRate) {
-		return new FFMpegTrimCommandGenerator(fMultiply(frameRate), "0:v", "trim", "start_frame", "end_frame",
+		return new FFMpegTrimCommandGenerator(fMultiply(frameRate), "0:v", "trim", "start", "end",
 		                                      "setpts=PTS-STARTPTS", "v=1:a=0", "v");
 	}
 	
 	public static final FFMpegTrimCommandGenerator forAudio(int sampleRate) {
-		return new FFMpegTrimCommandGenerator(fMultiply(sampleRate), "0:a", "atrim", "start_sample", "end_sample",
+		return new FFMpegTrimCommandGenerator(fMultiply(sampleRate), "0:a", "atrim", "start", "end",
 		                                      "asetpts=PTS-STARTPTS", "v=0:a=1", "a");
 	}
 	
@@ -47,24 +47,24 @@ public final class FFMpegTrimCommandGenerator {
 		
 		// Generate the trim part of the command
 		for(int i = 0; i < numOfCuts; ++i) {
-			Cut.OfLong cut = transform.apply(cuts.get(i));
+			Cut.OfDouble cut = cuts.get(i);
 			builder.append(DRMUtils.format(cmdSegmentTrim, cut.start(), cut.end(), i));
 		}
 		
 		builder.deleteCharAt(builder.length() - 1);
 		
 		// Generate the concat part of the command
-		String concatMap = "t" + nameSuffix + "0";
+		String concatMap = "t" + nameSuffix;
 		if(numOfCuts >= 2) {
 			builder.append(';');
 			IntStream.range(0, numOfCuts)
 				.mapToObj((i) -> "[t" + nameSuffix + i + "]")
 				.forEach(builder::append);
 			builder.append(DRMUtils.format("concat=n=%d:%s[c%s]", numOfCuts, concatArgs, nameSuffix));
-			concatMap = "c";
+			concatMap = "c" + nameSuffix;
 		}
 		
-		return new TrimCommand(builder.toString(), concatMap + nameSuffix);
+		return new TrimCommand(builder.toString(), concatMap);
 	}
 	
 	public TrimCommand command(List<Cut.OfDouble> cutsInclude) {

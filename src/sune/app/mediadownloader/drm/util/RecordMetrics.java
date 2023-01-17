@@ -5,7 +5,6 @@ import java.util.Arrays;
 public final class RecordMetrics {
 	
 	private static final double SECS_IN_NANO = 1e-9;
-	private static final double RECORD_TIME_OFFSET = -0.5;
 	
 	private static final int MEMORY_CAPACITY = 128;
 	private static final int FPS_MIN = 10;
@@ -27,7 +26,7 @@ public final class RecordMetrics {
 	}
 	
 	private final double recordTime(long now) {
-		return recordTime + (recordTimeAccumulator + (now - lastRecordUpdateTime)) * SECS_IN_NANO + RECORD_TIME_OFFSET;
+		return recordTime + (recordTimeAccumulator + (now - lastRecordUpdateTime)) * SECS_IN_NANO;
 	}
 	
 	private final int histogramFPS(double fps) {
@@ -45,7 +44,11 @@ public final class RecordMetrics {
 		lastPlaybackTime = time;
 	}
 	
-	public final double recordTime() { // Self-synchronizing record time
+	public final double recordTime() {
+		return recordTime;
+	}
+	
+	public final double recordTimeNow() { // Self-synchronizing record time
 		return recordTime(System.nanoTime());
 	}
 	
@@ -69,10 +72,6 @@ public final class RecordMetrics {
 		fpsCalc.reset();
 		histogram.reset();
 		
-	}
-	
-	public final double startCutOff() {
-		return recordTime();
 	}
 	
 	public final int playbackFPS() {

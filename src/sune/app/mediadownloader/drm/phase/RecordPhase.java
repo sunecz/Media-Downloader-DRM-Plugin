@@ -4,6 +4,8 @@ import java.net.SocketException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -28,6 +30,7 @@ import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.event.RecordEvent;
 import sune.app.mediadownloader.drm.tracker.RecordTracker;
 import sune.app.mediadownloader.drm.util.Cut;
+import sune.app.mediadownloader.drm.util.DRMUtils;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.RealTimeAudio;
@@ -54,16 +57,27 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private final List<Cut.OfDouble> videoCuts = new ArrayList<>();
 	private final List<Cut.OfDouble> audioCuts = new ArrayList<>();
-	private boolean playbackEnded = false;
-	private boolean recordPaused = false;
 	private double startCutOff = 0.0;
 	private double endCutOff = -1.0;
 	private volatile double pauseTime = -1.0;
+	private volatile double waitPlaybackTime = -1.0;
+	private volatile double lastValidRecordTime = -1.0;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
+	private final AtomicBoolean videoEnded = new AtomicBoolean(false);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
+	private final AtomicBoolean recordPaused = new AtomicBoolean(false);
+	
+	private double audioTimeDelay = 0.0;
+	private boolean first = true;
+	
+	private double lastWaitTime = Double.NaN;
+	private double firstResumeTime = Double.NaN;
 	
 	private RealTimeAudio audio;
-	private volatile double lastAudioTime = 0.0;
+	private volatile boolean hasLastAudioTime = false;
+	private volatile double pauseTimeAudio = -1.0;
+	private volatile double durationDiff = 0.0;
+	private final Queue<Cut.OfDouble> pendingPauseCuts = new ConcurrentLinkedQueue<>();
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -94,7 +108,27 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		return path.resolveSibling(Utils.fileNameNoType(fileName) + ".mkv");
 	}
 	
+	private final double recordTime() {
+		return Math.floor(metrics.recordTime() * frameRate) / frameRate;
+	}
+	
 	private final void recordUpdated(String line) {
+		if(first) {
+			long time = System.nanoTime();
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("First data: time={}", time);
+			}
+			
+			audioTimeDelay = (audio.firstDataTime() - time) * 2.0 / 3.0 * 1e-9;
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("audioTimeDelay={}", audioTimeDelay);
+			}
+			
+			first = false;
+		}
+		
 		if(logger.isDebugEnabled())
 			logger.debug("FFMpeg | {}", line);
 		
@@ -116,7 +150,32 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private final void audioUpdated(AudioVolume audioVolume) {
 		if(audioVolume.volume() > DRMConstants.DEFAULT_SILENCE_THRESHOLD) {
-			lastAudioTime = audioVolume.time();
+			hasLastAudioTime = true;
+			
+			Cut.OfDouble videoCut;
+			if(pauseTimeAudio > 0.0
+					&& (videoCut = pendingPauseCuts.poll()) != null) {
+				double startTime = pauseTimeAudio;
+				double endTime = audioVolume.time();
+				
+				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
+				audioCuts.add(cutAudio);
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Cut audio: {}", cutAudio);
+				}
+				
+				pauseTimeAudio = -1.0;
+			}
+		} else if(hasLastAudioTime) {
+			double audioTime = audioVolume.time();// - audioTimeDelay;
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("First silence: time={}, volume={}", audioTime, audioVolume.volume());
+			}
+			
+			pauseTimeAudio = audioTime;
+			hasLastAudioTime = false;
 		}
 	}
 	
@@ -171,55 +230,48 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(ex != null) throw ex;
 	}
 	
-	private void pauseRecord(PlaybackData data) {
-		if(process == null)
-			throw new IllegalStateException("FFMpeg not ready");
-		if(!videoPlaying.get()) return; // Video not playing
+	private final void pauseRecord(PlaybackData data, double recordTime) {
+		if(videoPlaying.compareAndSet(false, true)) {
+			return; // Video already playing
+		}
 		
-		// Get the current time as soon as possible in the method
-		double recordTime = metrics.recordTime() - 0.5 / frameRate;
-		
-		if(logger.isDebugEnabled())
+		if(logger.isDebugEnabled()) {
 			logger.debug("Record paused");
+		}
 		
+		// Only set to the new value, if unset
 		if(pauseTime < 0.0) {
 			pauseTime = recordTime;
 		}
 		
-		videoPlaying.set(false);
+		waitPlaybackTime = data.time;
 	}
 	
-	private void resumeRecord(PlaybackData data) {
-		if(process == null)
-			throw new IllegalStateException("FFMpeg not ready");
-		if(videoPlaying.get()) return; // Video already playing
-		
-		// Get the current time as soon as possible in the method
-		double recordTime = metrics.recordTime() - 0.5 / frameRate;
-		
-		if(logger.isDebugEnabled())
-			logger.debug("Record resumed");
-		
-		if(pauseTime >= 0.0) {
-			double startTime = pauseTime;
-			double endTime = recordTime;
-			Cut.OfDouble cutVideo = new Cut.OfDouble(startTime, endTime);
-			videoCuts.add(cutVideo);
-			
-			if(logger.isDebugEnabled())
-				logger.debug("Cut video: {}", cutVideo);
-			
-			double length = endTime - startTime;
-			double lat = lastAudioTime;
-			Cut.OfDouble cutAudio = new Cut.OfDouble(lat, lat + length);
-			audioCuts.add(cutAudio);
-			
-			if(logger.isDebugEnabled())
-				logger.debug("Cut audio: {}", cutAudio);
-			
-			pauseTime = -1.0;
+	private final void resumeRecord(PlaybackData data, double recordTime) {
+		if(videoPlaying.compareAndSet(false, true)) {
+			return; // Video already playing
 		}
-		videoPlaying.set(true);
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug("Record resumed");
+		}
+		
+		if(pauseTime < 0.0) {
+			return; // Ignore invalid times
+		}
+		
+		double startTime = lastWaitTime + 0.5 / frameRate;// pauseTime;
+		double endTime = firstResumeTime;// recordTime;
+		Cut.OfDouble cutVideo = new Cut.OfDouble(startTime, endTime);
+		videoCuts.add(cutVideo);
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug("Cut video: {}", cutVideo);
+		}
+		
+		pendingPauseCuts.add(cutVideo);
+		
+		pauseTime = -1.0;
 	}
 	
 	private final void closeProcess() throws Exception {
@@ -424,88 +476,167 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private final class RecordPhaseHandler implements PlaybackEventsHandler {
 		
-		private boolean isFirstEvent = true;
+		private final AtomicBoolean isFirstEvent = new AtomicBoolean(true);
 		
-		private final void setStartCutOff(PlaybackData data) {
-			startCutOff = metrics.startCutOff() - data.time;
-			if(logger.isDebugEnabled())
+		private final void maybeSetStartCutOff(PlaybackData data, double recordTime) {
+			if(!isFirstEvent.compareAndSet(true, false)) {
+				return; // Start cut off already set
+			}
+			
+			startCutOff = recordTime - data.time;
+			
+			if(logger.isDebugEnabled()) {
 				logger.debug("Start cut off: {}", startCutOff);
-			isFirstEvent = false;
+			}
 		}
 		
 		@Override
 		public void updated(PlaybackData data) {
-			if(!recordActive.get()) return;
-			metrics.updatePlayback(data.time, data.frame);
-			
-			if(isFirstEvent)
-				setStartCutOff(data);
-			
-			if(logger.isDebugEnabled())
-				logger.debug("Update | time={}, frame={}, record time={}, buffered={}, fps={}", data.time, data.frame, metrics.recordTime(), data.buffered, metrics.playbackFPS());
-			
-			if(recordPaused) {
-				resumeRecord(data);
+			if(!recordActive.get()) {
+				return; // Record not active, ignore
 			}
+			
+			// Get the current record time as soon as possible in this method
+			double recordTime = recordTime();
+			
+			if(!recordPaused.get() && !Double.isNaN(lastWaitTime) && !DRMUtils.eq(lastWaitTime, recordTime)) {
+				firstResumeTime = recordTime;
+				resumeRecord(data, recordTime);
+				
+				lastWaitTime = Double.NaN;
+				firstResumeTime = Double.NaN;
+			}
+			
+			metrics.updatePlayback(data.time, data.frame);
+			maybeSetStartCutOff(data, recordTime);
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Update | time={}, frame={}, record time={}, buffered={}, fps={}",
+					data.time, data.frame, recordTime, data.buffered, metrics.playbackFPS()
+				);
+			}
+			
+			/*if(recordPaused.get()
+					&& !DRMUtils.eq(waitPlaybackTime, data.time)) {
+				resumeRecord(data, recordTime);
+			}*/
 			
 			tracker.update(data.time);
 		}
 		
 		@Override
 		public void waiting(PlaybackData data) {
-			if(!recordActive.get()) return;
+			if(!recordActive.get()) {
+				return; // Record not active, ignore
+			}
+			
+			// Get the current record time as soon as possible in this method
+			double recordTime = recordTime();
+			lastValidRecordTime = recordTime;
+			
 			metrics.updatePlayback(data.time, data.frame);
-			if(recordPaused) return; // Not resumed, ignore
 			
-			if(isFirstEvent)
-				setStartCutOff(data);
+			if(!recordPaused.compareAndSet(false, true)) {
+				return; // Not resumed, ignore
+			}
 			
-			if(logger.isDebugEnabled())
-				logger.debug("Wait | time={}, frame={}, record time={}", data.time, data.frame, metrics.recordTime());
+			maybeSetStartCutOff(data, recordTime);
 			
-			if(!playbackEnded) pauseRecord(data);
-			recordPaused = true;
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Wait | time={}, frame={}, record time={}",
+					data.time, data.frame, recordTime
+				);
+			}
+			
+			if(!videoEnded.get()) {
+				pauseRecord(data, recordTime);
+			}
 		}
 		
 		@Override
 		public void resumed(PlaybackData data) {
-			if(!recordActive.get()) return;
-			metrics.updatePlayback(data.time, data.frame);
-			if(!recordPaused) return; // Not paused, ignore
+			if(!recordActive.get()) {
+				return; // Record not active, ignore
+			}
 			
-			if(isFirstEvent)
-				setStartCutOff(data);
+			// Get the current record time as soon as possible in this method
+			double recordTime = recordTime();
+			lastWaitTime = recordTime;
+			
+			metrics.updatePlayback(data.time, data.frame);
+			
+			if(!recordPaused.compareAndSet(true, false)) {
+				return; // Not paused, ignore
+			}
+			
+			maybeSetStartCutOff(data, recordTime);
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Resume | time={}, frame={}, record time={}",
+					data.time, data.frame, recordTime
+				);
+			}
 			
 			// Video is buffered (after wait), can be played
-			if(logger.isDebugEnabled())
-				logger.debug("Resume | time={}, frame={}, record time={}", data.time, data.frame, metrics.recordTime());
-			
-			resumeRecord(data);
-			recordPaused = false;
+			//resumeRecord(data, recordTime);
 		}
 		
 		@Override
 		public void ended(PlaybackData data) {
-			if(!recordActive.get()) return;
+			if(!recordActive.get()) {
+				return; // Record not active, ignore
+			}
+			
+			// Get the current record time as soon as possible in this method
+			double recordTime = recordTime();
+			
 			metrics.updatePlayback(data.time, data.frame);
 			
-			if(isFirstEvent)
-				setStartCutOff(data);
+			if(!videoEnded.compareAndSet(false, true)) {
+				return; // Already ended, ignore
+			}
 			
-			// If the video stopped while waiting (it can happen), use the pause time
-			endCutOff = pauseTime >= 0.0 ? pauseTime : metrics.recordTime();
-			pauseTime = -1.0;
+			maybeSetStartCutOff(data, recordTime);
 			
-			if(logger.isDebugEnabled())
-				logger.debug("endCutOff: {}", endCutOff);
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Stop | time={}, frame={}, record time={}",
+					data.time, data.frame, recordTime
+				);
+			}
 			
-			playbackEnded = true;
-			if(logger.isDebugEnabled())
-				logger.debug("Stop | time={}, frame={}, record time={}", data.time, data.frame, metrics.recordTime());
+			// If the video stopped while waiting (it can happen), use the last resume time
+			endCutOff = (pauseTime > 0.0 ? lastValidRecordTime : recordTime) + 0.5 / frameRate;
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("End cut off: {}", endCutOff);
+			}
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("DEBUG: pauseTime={}, lastValidRecordTime={}, recordTime={}, pendingPauseDurations::isEmpty={}, pauseTimeAudio={}",
+				             pauseTime, lastValidRecordTime, recordTime, pendingPauseCuts.isEmpty(), pauseTimeAudio);
+			}
+			
+			// Since audio won't update at this point, add audio cut manually
+			if(!pendingPauseCuts.isEmpty()) {
+				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : lastValidRecordTime;
+				double endTime = recordTime;
+				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
+				audioCuts.add(cutAudio);
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Cut audio: {}", cutAudio);
+				}
+			}
 			
 			try {
-				if(logger.isDebugEnabled())
+				if(logger.isDebugEnabled()) {
 					logger.debug("Closing record process...");
+				}
+				
 				closeProcess();
 			} catch(Exception ex) {
 				exception.set(ex);

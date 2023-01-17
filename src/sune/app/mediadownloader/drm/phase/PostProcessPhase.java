@@ -105,7 +105,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			builder.append(" -y -hide_banner -v info");
 			builder.append(" -i \"%{input}s\"");
 			builder.append(" -filter_complex_script \"%{script_path}s\"");
-			builder.append(" -map [%{map_video}s] -map [%{map_audio}s]");
+			builder.append(" -map %{map_video}s -map %{map_audio}s");
 			builder.append(" %{args_video}s %{args_audio}s");
 			builder.append(" -shortest"); // Fix output file duration
 			builder.append(" \"%{output}s\"");
@@ -114,8 +114,8 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 				builder.toString(),
 				"input", outputRecord.toAbsolutePath().toString(),
 				"script_path", scriptPath,
-				"map_video", commandVideo.map(),
-				"map_audio", commandAudio.map(),
+				"map_video", '[' + commandVideo.map() + ']',
+				"map_audio", '[' + commandAudio.map() + ']',
 				"args_video", commandFactory.videoProcessorCommandArguments(),
 				"args_audio", commandFactory.audioProcessorCommandArguments(),
 				"output", output.toAbsolutePath().toString()
@@ -134,7 +134,7 @@ public class PostProcessPhase implements PipelineTask<PostProcessPhaseResult> {
 			filesManager.delete(outputRecord);
 		}
 		
-		filesManager.deleteAll();
+		//filesManager.deleteAll();
 	}
 	
 	@Override
