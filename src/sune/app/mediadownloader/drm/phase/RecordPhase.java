@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,20 +58,18 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final List<Cut.OfDouble> videoCuts = new ArrayList<>();
 	private final List<Cut.OfDouble> audioCuts = new ArrayList<>();
 	private double startCutOff = 0.0;
-	private double endCutOff = -1.0;
-	private volatile double pauseTimeVideo = -1.0;
-	private volatile double pauseTimeAudio = -1.0;
-	private volatile double lastValidRecordTime = -1.0;
+	private double endCutOff = Double.NaN;
+	private volatile double pauseTimeVideo = Double.NaN;
+	private volatile double pauseTimeAudio = Double.NaN;
+	private volatile double lastValidVideoTime = Double.NaN;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
 	private final AtomicBoolean videoEnded = new AtomicBoolean(false);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
 	private final AtomicBoolean recordPaused = new AtomicBoolean(false);
 	
-	private double lastWaitTime = Double.NaN;
-	
 	private RealTimeAudio audio;
 	private boolean hasLastAudioTime = false;
-	private volatile int pendingPauseCutsCount = 0;
+	private final AtomicInteger pendingPauseCutsCount = new AtomicInteger(0);
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -137,7 +136,8 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(audioVolume.volume() > DRMConstants.DEFAULT_SILENCE_THRESHOLD) {
 			hasLastAudioTime = true;
 			
-			if(pauseTimeAudio > 0.0 && pendingPauseCutsCount > 0) {
+			if(pauseTimeAudio > 0.0
+					&& pendingPauseCutsCount.getAndDecrement() > 0) {
 				double startTime = pauseTimeAudio;
 				double endTime = audioVolume.time();
 				
@@ -148,7 +148,6 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 					logger.debug("Cut audio: {}", cutAudio);
 				}
 				
-				--pendingPauseCutsCount;
 				pauseTimeAudio = -1.0;
 			}
 		} else if(hasLastAudioTime) {
@@ -253,7 +252,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			return; // Ignore invalid times
 		}
 		
-		double startTime = includeVideoFrame(lastWaitTime);
+		double startTime = includeVideoFrame(lastValidVideoTime);
 		double endTime = recordVideoTime;
 		Cut.OfDouble cutVideo = new Cut.OfDouble(startTime, endTime);
 		videoCuts.add(cutVideo);
@@ -262,7 +261,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Cut video: {}", cutVideo);
 		}
 		
-		++pendingPauseCutsCount;
+		pendingPauseCutsCount.getAndIncrement();
 		pauseTimeVideo = -1.0;
 	}
 	
@@ -523,10 +522,10 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			double recordVideoTime = recordVideoTime();
 			
 			if(!recordPaused.get()
-					&& !Double.isNaN(lastWaitTime)
-					&& !DRMUtils.eq(lastWaitTime, recordVideoTime)) {
+					&& !Double.isNaN(lastValidVideoTime)
+					&& !DRMUtils.eq(lastValidVideoTime, recordVideoTime)) {
 				resumeRecord(data, recordVideoTime);
-				lastWaitTime = Double.NaN;
+				lastValidVideoTime = Double.NaN;
 			}
 			
 			metrics.updatePlayback(data.time, data.frame);
@@ -549,7 +548,6 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			}
 			
 			double recordVideoTime = recordVideoTime();
-			lastValidRecordTime = recordVideoTime;
 			
 			metrics.updatePlayback(data.time, data.frame);
 			
@@ -578,7 +576,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			}
 			
 			double recordVideoTime = recordVideoTime();
-			lastWaitTime = recordVideoTime;
+			lastValidVideoTime = recordVideoTime;
 			
 			metrics.updatePlayback(data.time, data.frame);
 			
@@ -620,7 +618,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			}
 			
 			// If the video stopped while waiting (it can happen), use the last resume time
-			endCutOff = includeVideoFrame(pauseTimeVideo > 0.0 ? lastValidRecordTime : recordVideoTime);
+			endCutOff = includeVideoFrame(pauseTimeVideo > 0.0 ? lastValidVideoTime : recordVideoTime);
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("End cut off: {}", endCutOff);
@@ -628,14 +626,14 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
-					"pauseTimeVideo={}, pauseTimeAudio={}, lastValidRecordTime={}, recordVideoTime={}, pendingPauseCutsCount{}",
-					pauseTimeVideo, pauseTimeAudio, lastValidRecordTime, recordVideoTime, pendingPauseCutsCount
+					"pauseTimeVideo={}, pauseTimeAudio={}, lastValidVideoTime={}, recordVideoTime={}, pendingPauseCutsCount{}",
+					pauseTimeVideo, pauseTimeAudio, lastValidVideoTime, recordVideoTime, pendingPauseCutsCount.get()
 				);
 			}
 			
 			// Since audio won't update at this point, add audio cut manually
-			if(pendingPauseCutsCount > 0) {
-				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : includeVideoFrame(lastValidRecordTime);
+			if(pendingPauseCutsCount.get() > 0) {
+				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : includeVideoFrame(lastValidVideoTime);
 				double endTime = recordVideoTime;
 				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
 				audioCuts.add(cutAudio);
