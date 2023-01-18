@@ -9,6 +9,10 @@
 				fields: {
 					debug:   "Debug mód",
 					quality: "Kvalita",
+					audio: {
+						captureDeviceName: "Nahrávací audio zařízení",
+						renderDeviceName:  "Přehrávací audio zařízení"
+					},
 					record: {
 						useDisplayRefreshRate: "Použít obnovovací frekvenci displeje, je-li známá",
 						defaultFrameRate:      "Výchozí FPS nahrávání"
@@ -27,6 +31,13 @@
 						HIGH:     "Vysoká",
 						MEDIUM:   "Střední",
 						LOW:      "Nízká"
+					},
+					audio: {
+						device_auto: "Automaticky",
+						progress: {
+							devices_capture: "Získávání nahrávacích audio zařízení...",
+							devices_render:  "Získávání přehrávacích audio zařízení..."
+						}
 					}
 				}
 			},

@@ -115,7 +115,7 @@ public final class SoundVolumeView {
 					String deviceAlternativeName = itemFriendlyName;
 					Direction deviceDirection = AudioDevice.Direction.of(itemDirection);
 					
-					AudioDevice audioDevice = AudioDevices.of(deviceName, deviceAlternativeName, deviceDirection);
+					AudioDevice audioDevice = AudioDevices.newDevice(deviceName, deviceAlternativeName, deviceDirection);
 					audioDevices.add(audioDevice);
 				}
 			}

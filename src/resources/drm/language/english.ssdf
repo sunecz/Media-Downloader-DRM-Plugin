@@ -9,6 +9,10 @@
 				fields: {
 					debug:   "Debug mode",
 					quality: "Quality",
+					audio: {
+						captureDeviceName: "Capture audio device",
+						renderDeviceName:  "Render audio device"
+					},
 					record: {
 						useDisplayRefreshRate: "Use display refresh rate, if known",
 						defaultFrameRate:      "Default recording FPS"
@@ -27,6 +31,13 @@
 						HIGH:     "High",
 						MEDIUM:   "Medium",
 						LOW:      "Low"
+					},
+					audio: {
+						device_auto: "Automatically",
+						progress: {
+							devices_capture: "Obtaining capture audio devices...",
+							devices_render:  "Obtaining render audio devices..."
+						}
 					}
 				}
 			},

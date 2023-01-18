@@ -34,7 +34,6 @@ import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.phase.InitializationPhaseInput;
 import sune.app.mediadownloader.drm.util.AudioDevices;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice;
-import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice.Direction;
 import sune.app.mediadownloader.drm.util.AudioRedirector;
 import sune.app.mediadownloader.drm.util.CEFLog;
 import sune.app.mediadownloader.drm.util.JS;
@@ -42,7 +41,6 @@ import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
-import sune.app.mediadownloader.drm.util.SoundVolumeView;
 import sune.util.ssdf2.SSDCollection;
 
 public final class DRMInstance implements EventBindable<EventType> {
@@ -195,8 +193,8 @@ public final class DRMInstance implements EventBindable<EventType> {
 					);
 				}
 				
-				audioDevice = SoundVolumeView.audioDevices().stream()
-					.filter((d) -> d.direction() == Direction.RENDER && AudioDevices.isVirtualDevice(d.name()))
+				audioDevice = AudioDevices.renderAudioDevices().stream()
+					.filter((d) -> AudioDevices.isVirtualDevice(d.name()))
 					.findFirst().orElse(null);
 			} else if((tempDevice = AudioDevices.stereoMixDevice()) != null
 							&& alternativeName.equals(tempDevice.alternativeName())) {
@@ -215,9 +213,8 @@ public final class DRMInstance implements EventBindable<EventType> {
 				logger.debug("Constructing render audio device from name: {}", audioDeviceName);
 			}
 			
-			audioDevice = SoundVolumeView.audioDevices().stream()
-				.filter((d) -> d.direction() == Direction.RENDER
-				                    && d.alternativeName().equalsIgnoreCase(audioDeviceName))
+			audioDevice = AudioDevices.renderAudioDevices().stream()
+				.filter((d) -> d.alternativeName().equalsIgnoreCase(audioDeviceName))
 				.findFirst().orElse(null);
 			
 			if(audioDevice == null) {

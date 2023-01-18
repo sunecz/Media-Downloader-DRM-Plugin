@@ -294,6 +294,8 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			boolean outputUseMediaFrameRate = pluginConfiguration.outputUseMediaFrameRate();
 			double outputFrameRate = pluginConfiguration.outputDefaultFrameRate();
 			boolean keepRecordFile = pluginConfiguration.processKeepRecordFile();
+			String captureAudioDeviceName = pluginConfiguration.audioCaptureDeviceName();
+			String renderAudioDeviceName = pluginConfiguration.audioRenderDeviceName();
 			
 			// Configure the DRM
 			DRMConfiguration configuration = new DRMConfiguration.Builder()
@@ -306,6 +308,8 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 				.outputUseMediaFrameRate(outputUseMediaFrameRate)
 				.outputFrameRate(outputFrameRate)
 				.keepRecordFile(keepRecordFile)
+				.captureAudioDeviceName(captureAudioDeviceName)
+				.renderAudioDeviceName(renderAudioDeviceName)
 				.build();
 			
 			// Prepare the DRM instance

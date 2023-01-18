@@ -6,9 +6,11 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.ffmpeg.FFmpeg;
+import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice.Direction;
 
 public final class AudioDevices {
 	
@@ -39,6 +41,16 @@ public final class AudioDevices {
 		return dshowDevices;
 	}
 	
+	public static final List<AudioDevice> captureAudioDevices() throws Exception {
+		return directShowDevices();
+	}
+	
+	public static final List<AudioDevice> renderAudioDevices() throws Exception {
+		return SoundVolumeView.audioDevices().stream()
+					.filter((d) -> d.direction() == Direction.RENDER)
+					.collect(Collectors.toList());
+	}
+	
 	public static final AudioDevice stereoMixDevice() throws Exception {
 		return directShowDevices().stream()
 					.filter((d) -> d.name().contains("stereo"))
@@ -51,7 +63,7 @@ public final class AudioDevices {
 					.findFirst().orElse(null);
 	}
 	
-	public static final AudioDevice of(String name, String alternativeName, AudioDevice.Direction direction) {
+	public static final AudioDevice newDevice(String name, String alternativeName, AudioDevice.Direction direction) {
 		return AudioDevice.builder()
 					.name(name)
 					.alternativeName(alternativeName)
