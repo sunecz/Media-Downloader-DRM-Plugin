@@ -13,7 +13,6 @@
 	<!-- Builds all the JARs -->
 	<target name="create_jar">
 		<antcall target="build_plugin_jar" />
-		<antcall target="build_plugin_runnable_jar" />
 	</target>
 	<!-- Builds the plugin JAR with compiled source and resources -->
 	<target name="build_plugin_jar">
@@ -27,29 +26,5 @@
 		<echo message="Generating source ZIP file..." />
 		<zip destfile="${dir.jar}/${plugin.name}-source.jar" basedir="${dir.src}" />
 		<copy file="${dir.jar}/${plugin.name}.jar" tofile="${dir.prj}/${plugin.name}.jar" />
-	</target>
-	<!-- Builds runnable plugin JAR file -->
-	<target name="build_plugin_runnable_jar">
-		<echo message="Building runnable ${plugin.name}..." />
-		<jar destfile="${dir.jar}/${plugin.name}-run-dirty.jar">
-			<zipfileset src="${dir.lib}/../jar/media-downloader.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/sune-utils-load.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/infomas-asl.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/ssdf2.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/sune-memory.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/sune-process-api.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-			<zipfileset src="${dir.lib}/jsoup.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-		</jar>
-		<jar destfile="${dir.jar}/${plugin.name}-run.jar">
-			<manifest>
-				<attribute name="Class-Path" value="." />
-				<attribute name="Main-Class" value="sune.app.mediadownloader.drm.DRMBootstrapCLI"/>
-			</manifest>
-			<fileset dir="${dir.bin}" />
-			<zipfileset src="${dir.jar}/${plugin.name}-run-dirty.jar" excludes="META-INF/*.sf,module-info.class,/*.md" />
-		</jar>
-		<delete file="${dir.jar}/${plugin.name}-run-dirty.jar" />
-		<echo message="Generating source ZIP file..." />
-		<zip destfile="${dir.jar}/${plugin.name}-run-source.jar" basedir="${dir.src}" />
 	</target>
 </project>
