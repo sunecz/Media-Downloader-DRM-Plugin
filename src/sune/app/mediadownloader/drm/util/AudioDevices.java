@@ -18,21 +18,24 @@ public final class AudioDevices {
 	private AudioDevices() {
 	}
 	
-	private static final boolean isVirtualDevice(AudioDevice.Builder audioDevice) {
-		String lowerCaseName = audioDevice.name().toLowerCase();
+	public static final boolean isVirtualDevice(String audioDeviceName) {
+		String lowerCaseName = audioDeviceName.toLowerCase();
 		return lowerCaseName.contains("cable output") || lowerCaseName.contains("virtual");
 	}
 	
 	public static final List<AudioDevice> directShowDevices() throws Exception {
 		if(dshowDevices == null) {
 			DirectShowAudioDevicesParser parser = new DirectShowAudioDevicesParser();
+			
 			try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess(parser)) {
 				String command = "-f dshow -list_devices true -i dummy -hide_banner";
 				process.execute(command);
 				DRMProcessUtils.throwIfFailedFFMpeg(process.waitFor(), 1);
 			}
+			
 			dshowDevices = parser.devices();
 		}
+		
 		return dshowDevices;
 	}
 	
@@ -44,7 +47,27 @@ public final class AudioDevices {
 	
 	public static final AudioDevice virtualDevice() throws Exception {
 		return directShowDevices().stream()
-					.filter(AudioDevice::isVirtual)
+					.filter((d) -> isVirtualDevice(d.name()))
+					.findFirst().orElse(null);
+	}
+	
+	public static final AudioDevice of(String name, String alternativeName, AudioDevice.Direction direction) {
+		return AudioDevice.builder()
+					.name(name)
+					.alternativeName(alternativeName)
+					.direction(direction)
+					.build();
+	}
+	
+	public static final AudioDevice findOfName(String name) throws Exception {
+		return directShowDevices().stream()
+					.filter((d) -> d.name().equals(name))
+					.findFirst().orElse(null);
+	}
+	
+	public static final AudioDevice findOfAlternativeName(String alternativeName) throws Exception {
+		return directShowDevices().stream()
+					.filter((d) -> d.alternativeName().equals(alternativeName))
 					.findFirst().orElse(null);
 	}
 	
@@ -52,12 +75,16 @@ public final class AudioDevices {
 		
 		private final String name;
 		private final String alternativeName;
-		private final boolean isVirtual;
+		private final Direction direction;
 		
-		private AudioDevice(String name, String alternativeName, boolean isVirtual) {
+		private AudioDevice(String name, String alternativeName, Direction direction) {
 			this.name = Objects.requireNonNull(name);
 			this.alternativeName = Objects.requireNonNull(alternativeName);
-			this.isVirtual = isVirtual;
+			this.direction = direction;
+		}
+		
+		public static final Builder builder() {
+			return new Builder();
 		}
 		
 		public String name() {
@@ -68,36 +95,43 @@ public final class AudioDevices {
 			return alternativeName;
 		}
 		
-		public boolean isVirtual() {
-			return isVirtual;
+		public Direction direction() {
+			return direction;
 		}
 		
 		public static final class Builder {
 			
 			private String name;
 			private String alternativeName;
-			private boolean isVirtual;
+			private Direction direction;
+			
+			private Builder() {
+				clear();
+			}
 			
 			public AudioDevice build() {
-				return new AudioDevice(name, alternativeName, isVirtual);
+				return new AudioDevice(name, alternativeName, direction);
 			}
 			
-			public void clear() {
+			public final void clear() {
 				name = null;
 				alternativeName = null;
-				isVirtual = false;
+				direction = Direction.UNKNOWN;
 			}
 			
-			public void name(String name) {
+			public Builder name(String name) {
 				this.name = Objects.requireNonNull(name);
+				return this;
 			}
 			
-			public void alternativeName(String alternativeName) {
+			public Builder alternativeName(String alternativeName) {
 				this.alternativeName = Objects.requireNonNull(alternativeName);
+				return this;
 			}
 			
-			public void isVirtual(boolean isVirtual) {
-				this.isVirtual = isVirtual;
+			public Builder direction(Direction direction) {
+				this.direction = direction;
+				return this;
 			}
 			
 			public String name() {
@@ -108,8 +142,31 @@ public final class AudioDevices {
 				return alternativeName;
 			}
 			
-			public boolean isVirtual() {
-				return isVirtual;
+			public Direction direction() {
+				return direction;
+			}
+		}
+		
+		public static enum Direction {
+			
+			UNKNOWN, RENDER, CAPTURE;
+			
+			private static List<Direction> values;
+			
+			public static final List<Direction> allValues() {
+				if(values == null) {
+					values = List.of(values());
+				}
+				
+				return values;
+			}
+			
+			public static final Direction of(String string) {
+				String normalized = string.strip().toUpperCase();
+				
+				return allValues().stream()
+							.filter((e) -> e.name().equals(normalized))
+							.findFirst().orElse(UNKNOWN);
 			}
 		}
 	}
@@ -138,7 +195,7 @@ public final class AudioDevices {
 				
 				// Audio device name is first, construct or clear the builder as needed
 				if(audioDevice == null) {
-					audioDevice = new AudioDevice.Builder();
+					audioDevice = AudioDevice.builder();
 				} else {
 					audioDevice.clear();
 				}
@@ -149,7 +206,7 @@ public final class AudioDevices {
 				// Obtain the audio device's alternative name
 				audioDevice.alternativeName(matcher.group(1));
 				// Check whether the device is virtual or not
-				audioDevice.isVirtual(isVirtualDevice(audioDevice));
+				audioDevice.direction(AudioDevice.Direction.CAPTURE);
 				
 				// We've got all the information of the audio device, add it to the list
 				devices.add(audioDevice.build());

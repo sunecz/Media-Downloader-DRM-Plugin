@@ -13,6 +13,8 @@ public final class DRMConfiguration {
 	private final boolean detectFrameRate;
 	private final double analyzeDuration;
 	private final Quality quality;
+	private final String captureAudioDeviceName;
+	private final String renderAudioDeviceName;
 	private final boolean recordUseDisplayRefreshRate;
 	private final double recordFrameRate;
 	private final boolean outputUseMediaFrameRate;
@@ -20,13 +22,16 @@ public final class DRMConfiguration {
 	private final boolean keepRecordFile;
 	
 	private DRMConfiguration(Path output, Media media, boolean detectFrameRate, double analyzeDuration,
-			Quality quality, boolean recordUseDisplayRefreshRate, double recordFrameRate,
-			boolean outputUseMediaFrameRate, double outputFrameRate, boolean keepRecordFile) {
+			Quality quality, String captureAudioDeviceName, String renderAudioDeviceName,
+			boolean recordUseDisplayRefreshRate, double recordFrameRate, boolean outputUseMediaFrameRate,
+			double outputFrameRate, boolean keepRecordFile) {
 		this.output = output;
 		this.media = media;
 		this.detectFrameRate = detectFrameRate;
 		this.analyzeDuration = analyzeDuration;
 		this.quality = quality;
+		this.captureAudioDeviceName = captureAudioDeviceName;
+		this.renderAudioDeviceName = renderAudioDeviceName;
 		this.recordUseDisplayRefreshRate = recordUseDisplayRefreshRate;
 		this.recordFrameRate = recordFrameRate;
 		this.outputUseMediaFrameRate = outputUseMediaFrameRate;
@@ -52,6 +57,14 @@ public final class DRMConfiguration {
 	
 	public Quality quality() {
 		return quality;
+	}
+	
+	public String captureAudioDeviceName() {
+		return captureAudioDeviceName;
+	}
+	
+	public String renderAudioDeviceName() {
+		return renderAudioDeviceName;
 	}
 	
 	public boolean recordUseDisplayRefreshRate() {
@@ -85,6 +98,8 @@ public final class DRMConfiguration {
 		private boolean detectFrameRate;
 		private double analyzeDuration;
 		private Quality quality;
+		private String captureAudioDeviceName;
+		private String renderAudioDeviceName;
 		private boolean recordUseDisplayRefreshRate;
 		private double recordFrameRate;
 		private boolean outputUseMediaFrameRate;
@@ -97,6 +112,8 @@ public final class DRMConfiguration {
 			detectFrameRate = false;
 			analyzeDuration = DEFAULT_ANALYZE_DURATION;
 			quality = Quality.LOSSLESS;
+			captureAudioDeviceName = "auto";
+			renderAudioDeviceName = "auto";
 			recordUseDisplayRefreshRate = true;
 			recordFrameRate = DEFAULT_RECORD_FRAME_RATE;
 			outputUseMediaFrameRate = true;
@@ -118,8 +135,9 @@ public final class DRMConfiguration {
 			}
 			
 			return new DRMConfiguration(Objects.requireNonNull(output), Objects.requireNonNull(media),
-				detectFrameRate, analyzeDuration, quality, recordUseDisplayRefreshRate, recordFrameRate,
-				outputUseMediaFrameRate, outputFrameRate, keepRecordFile);
+				detectFrameRate, analyzeDuration, quality, captureAudioDeviceName, renderAudioDeviceName,
+				recordUseDisplayRefreshRate, recordFrameRate, outputUseMediaFrameRate, outputFrameRate,
+				keepRecordFile);
 		}
 		
 		public Builder output(Path output) {
@@ -145,6 +163,24 @@ public final class DRMConfiguration {
 		public Builder quality(Quality quality) {
 			this.quality = Objects.requireNonNull(quality);
 			return this;
+		}
+		
+		public Builder captureAudioDeviceName(String captureAudioDeviceName) {
+			this.captureAudioDeviceName = captureAudioDeviceName;
+			return this;
+		}
+		
+		public Builder autoCaptureAudioDeviceName() {
+			return captureAudioDeviceName("auto");
+		}
+		
+		public Builder renderAudioDeviceName(String renderAudioDeviceName) {
+			this.renderAudioDeviceName = renderAudioDeviceName;
+			return this;
+		}
+		
+		public Builder autoRenderAudioDeviceName() {
+			return renderAudioDeviceName("auto");
 		}
 		
 		public Builder recordUseDisplayRefreshRate(boolean recordUseDisplayRefreshRate) {
@@ -190,6 +226,14 @@ public final class DRMConfiguration {
 		
 		public Quality quality() {
 			return quality;
+		}
+		
+		public String captureAudioDeviceName() {
+			return captureAudioDeviceName;
+		}
+		
+		public String renderAudioDeviceName() {
+			return renderAudioDeviceName;
 		}
 		
 		public boolean recordUseDisplayRefreshRate() {

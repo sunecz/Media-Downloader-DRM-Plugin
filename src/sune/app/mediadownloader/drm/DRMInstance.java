@@ -34,6 +34,7 @@ import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.phase.InitializationPhaseInput;
 import sune.app.mediadownloader.drm.util.AudioDevices;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice;
+import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice.Direction;
 import sune.app.mediadownloader.drm.util.AudioRedirector;
 import sune.app.mediadownloader.drm.util.CEFLog;
 import sune.app.mediadownloader.drm.util.JS;
@@ -41,6 +42,7 @@ import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
+import sune.app.mediadownloader.drm.util.SoundVolumeView;
 import sune.util.ssdf2.SSDCollection;
 
 public final class DRMInstance implements EventBindable<EventType> {
@@ -70,7 +72,8 @@ public final class DRMInstance implements EventBindable<EventType> {
 	private final AtomicBoolean playbackReady = new AtomicBoolean();
 	private volatile Playback playback;
 	private volatile ProcessManager processManager;
-	private volatile AudioDevice audioDevice;
+	private volatile AudioDevice captureAudioDevice;
+	private volatile AudioDevice renderAudioDevice;
 	private volatile DRMCommandFactory commandFactory;
 	
 	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
@@ -113,44 +116,159 @@ public final class DRMInstance implements EventBindable<EventType> {
 		return List.copyOf(instances);
 	}
 	
-	private static final AudioDevice tryGetAudioDevice() throws Exception {
+	private final AudioDevice tryGetCaptureAudioDevice() throws Exception {
 		AudioDevice audioDevice;
+		String audioDeviceName = configuration.captureAudioDeviceName();
 		
-		if(logger.isDebugEnabled())
-			logger.debug("Trying to find a virtual audio device...");
-		
-		// If no virtual device is available, try to get the Stereo mix audio device
-		if((audioDevice = AudioDevices.virtualDevice()) == null) {
-			if(logger.isDebugEnabled())
-				logger.debug("Virtual audio device not found. Trying to find Stereo mix device...");
-			
-			// Fail if no audio device matches
-			if((audioDevice = AudioDevices.stereoMixDevice()) == null)
-				throw new IllegalStateException("Unable to obtain Stereo mix audio device.");
+		if(logger.isDebugEnabled()) {
+			logger.debug("Capture audio device name from configuration: {}", audioDeviceName);
 		}
 		
-		// At this point the device is either the virtual one or the Stereo mix one
+		boolean isAutomaticMode = audioDeviceName == null || audioDeviceName.equalsIgnoreCase("auto");
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug("Capture audio device mode: {}", isAutomaticMode ? "automatic" : "manual");
+		}
+		
+		if(isAutomaticMode) {
+			if(logger.isDebugEnabled()) {
+				logger.debug("Trying to find a virtual capture audio device...");
+			}
+			
+			// If no virtual device is available, try to get the Stereo mix audio device
+			if((audioDevice = AudioDevices.virtualDevice()) == null) {
+				if(logger.isDebugEnabled()) {
+					logger.debug(
+						"Virtual capture audio device not found. Trying to find Stereo mix capture audio device..."
+					);
+				}
+				
+				// Fail if no audio device matches
+				if((audioDevice = AudioDevices.stereoMixDevice()) == null) {
+					throw new IllegalStateException("Unable to obtain Stereo mix capture audio device.");
+				}
+			}
+		} else {
+			if(logger.isDebugEnabled()) {
+				logger.debug("Constructing capture audio device from name: {}", audioDeviceName);
+			}
+			
+			audioDevice = AudioDevices.findOfAlternativeName(audioDeviceName);
+			
+			if(audioDevice == null) {
+				throw new IllegalStateException(
+					"Unable to obtain capture audio device with name '" + audioDeviceName + "'."
+				);
+			}
+		}
+		
 		return audioDevice;
 	}
 	
-	private final void prepareAudioDevice() throws Exception {
-		audioDevice = tryGetAudioDevice();
-		if(logger.isDebugEnabled())
-			logger.debug("Audio device name: {} (isVirtual={})",
-			             audioDevice.alternativeName(), audioDevice.isVirtual());
+	private final AudioDevice tryGetRenderAudioDevice() throws Exception {
+		AudioDevice audioDevice;
+		String audioDeviceName = configuration.renderAudioDeviceName();
 		
-		// Check if the selected audio device is the virtual one
-		if(audioDevice.isVirtual()) {
-			if(logger.isDebugEnabled())
-				logger.debug("Redirecting to the virtual audio device...");
-			AudioRedirector.redirectToVirtual();
-			if(logger.isDebugEnabled())
-				logger.debug("Audio redirected to the virtual audio device.");
+		if(logger.isDebugEnabled()) {
+			logger.debug("Render audio device name from configuration: {}", audioDeviceName);
+		}
+		
+		boolean isAutomaticMode = audioDeviceName == null || audioDeviceName.equalsIgnoreCase("auto");
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug("Render audio device mode: {}", isAutomaticMode ? "automatic" : "manual");
+		}
+		
+		if(isAutomaticMode) {
+			String alternativeName = captureAudioDevice.alternativeName();
+			AudioDevice tempDevice;
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("Checking whether a virtual capture audio device has been selected...");
+			}
+			
+			if((tempDevice = AudioDevices.virtualDevice()) != null
+					&& alternativeName.equals(tempDevice.alternativeName())) {
+				if(logger.isDebugEnabled()) {
+					logger.debug(
+						"Virtual capture audio device selected, obtaining its rendering audio device..."
+					);
+				}
+				
+				audioDevice = SoundVolumeView.audioDevices().stream()
+					.filter((d) -> d.direction() == Direction.RENDER && AudioDevices.isVirtualDevice(d.name()))
+					.findFirst().orElse(null);
+			} else if((tempDevice = AudioDevices.stereoMixDevice()) != null
+							&& alternativeName.equals(tempDevice.alternativeName())) {
+				if(logger.isDebugEnabled()) {
+					logger.debug(
+						"Stereo mix capture audio device selected, rendering audio device not needed."
+					);
+				}
+				
+				audioDevice = null;
+			} else {
+				throw new IllegalStateException("Unsupported capture audio device for automatic mode.");
+			}
+		} else {
+			if(logger.isDebugEnabled()) {
+				logger.debug("Constructing render audio device from name: {}", audioDeviceName);
+			}
+			
+			audioDevice = SoundVolumeView.audioDevices().stream()
+				.filter((d) -> d.direction() == Direction.RENDER
+				                    && d.alternativeName().equalsIgnoreCase(audioDeviceName))
+				.findFirst().orElse(null);
+			
+			if(audioDevice == null) {
+				throw new IllegalStateException(
+					"Unable to obtain render audio device with name '" + audioDeviceName + "'."
+				);
+			}
+		}
+		
+		return audioDevice;
+	}
+	
+	private final void initializeAudioDevicesAndRedirect() throws Exception {
+		captureAudioDevice = tryGetCaptureAudioDevice();
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug(
+				"Capture audio device: name={}, alternativeName={}, direction={}",
+				captureAudioDevice.name(), captureAudioDevice.alternativeName(), captureAudioDevice.direction()
+			);
+		}
+		
+		renderAudioDevice = tryGetRenderAudioDevice();
+		
+		// The render audio device may be null, indicating no redirection
+		if(renderAudioDevice == null) {
+			if(logger.isDebugEnabled()) {
+				logger.debug("Render audio device is null, no redirection will take place.");
+			}
+		} else {
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Render audio device: name={}, alternativeName={}, direction={}",
+					renderAudioDevice.name(), renderAudioDevice.alternativeName(), renderAudioDevice.direction()
+				);
+			}
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("Redirecting audio to the render audio device...");
+			}
+			
+			AudioRedirector.redirect(renderAudioDevice.alternativeName());
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("Audio redirected to the render audio device.");
+			}
 		}
 	}
 	
 	private final void doProcess(Path output, double duration, int videoID, long frameID) throws Exception {
-		prepareAudioDevice();
+		initializeAudioDevicesAndRedirect();
 		
 		DRMBrowser browser = browserContext.browser();
 		CefFrame frame = browser.cefBrowser().getFrame(frameID);
@@ -570,7 +688,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 		
 		@Override
 		public String audioDeviceName() {
-			return audioDevice.alternativeName();
+			return captureAudioDevice.alternativeName();
 		}
 	}
 }
