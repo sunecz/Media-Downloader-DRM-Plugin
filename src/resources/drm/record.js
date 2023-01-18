@@ -107,7 +107,14 @@
 				this.provide('ended', this.playbackData(videoPlayer));
 			}, true);
 			videoPlayer.addEventListener('pause', (e) => {
-				this.provide('waiting', this.playbackData(videoPlayer));
+				const playbackData = this.playbackData(videoPlayer);
+
+				// Do not call the waiting event when the video ended
+				if(playbackData.time >= videoPlayer.duration) {
+					return;
+				}
+
+				this.provide('waiting', playbackData);
 			}, true);
 			videoPlayer.addEventListener('playing', (e) => {
 				this.provide('playing', this.playbackData(videoPlayer));

@@ -4,10 +4,12 @@ import java.io.OutputStream;
 import java.net.SocketException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,10 +61,10 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	private final List<Cut.OfDouble> videoCuts = new ArrayList<>();
 	private final List<Cut.OfDouble> audioCuts = new ArrayList<>();
 	private double startCutOff = 0.0;
-	private double endCutOff = Double.NaN;
-	private volatile double pauseTimeVideo = Double.NaN;
-	private volatile double pauseTimeAudio = Double.NaN;
-	private volatile double lastValidVideoTime = Double.NaN;
+	private double endCutOff = -1.0;
+	private volatile double pauseTimeVideo = -1.0;
+	private volatile double pauseTimeAudio = -1.0;
+	private volatile double lastValidVideoTime = -1.0;
 	private final AtomicBoolean videoPlaying = new AtomicBoolean(true);
 	private final AtomicBoolean videoEnded = new AtomicBoolean(false);
 	private final AtomicBoolean recordActive = new AtomicBoolean(false);
@@ -70,7 +72,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private RealTimeAudio audio;
 	private boolean hasLastAudioTime = false;
-	private final AtomicInteger pendingPauseCutsCount = new AtomicInteger(0);
+	private final Queue<Cut.OfDouble> pendingPauseCuts = new ConcurrentLinkedQueue<>();
 	
 	// Variables used for initializing the record process
 	private Thread threadInit;
@@ -111,6 +113,12 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private final RecordInfo recordInfo() {
 		Cut.OfDouble cutOff = new Cut.OfDouble(startCutOff, endCutOff);
+		
+		// Ensure the cuts are in ascending start time order
+		Comparator<Cut.OfDouble> comparator = Cut.OfDouble.startComparator();
+		videoCuts.sort(comparator);
+		audioCuts.sort(comparator);
+		
 		return new RecordInfo(recordPath, videoCuts, audioCuts, outputFrameRate, sampleRate, cutOff);
 	}
 	
@@ -139,10 +147,24 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 		if(audioVolume.volume() > DRMConstants.DEFAULT_SILENCE_THRESHOLD) {
 			hasLastAudioTime = true;
 			
-			if(pauseTimeAudio > 0.0
-					&& pendingPauseCutsCount.getAndDecrement() > 0) {
+			Cut.OfDouble cutVideo;
+			if(pauseTimeAudio > 0.0 && (cutVideo = pendingPauseCuts.poll()) != null) {
 				double startTime = pauseTimeAudio;
 				double endTime = audioVolume.time();
+				
+				double duration = endTime - startTime;
+				double maxDuration = cutVideo.length();
+				
+				if(duration > maxDuration) {
+					endTime = startTime + maxDuration;
+				} else {
+					double startDelay = startTime - cutVideo.start();
+					double endDelay = endTime - cutVideo.end();
+					
+					if(startDelay > 0.0 && endDelay > 0.0 && startDelay > endDelay) {
+						startTime -= startDelay - endDelay;
+					}
+				}
 				
 				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
 				audioCuts.add(cutAudio);
@@ -263,7 +285,7 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			logger.debug("Cut video: {}", cutVideo);
 		}
 		
-		pendingPauseCutsCount.getAndIncrement();
+		pendingPauseCuts.add(cutVideo);
 		pauseTimeVideo = -1.0;
 	}
 	
@@ -524,10 +546,10 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			double recordVideoTime = recordVideoTime();
 			
 			if(!recordPaused.get()
-					&& !Double.isNaN(lastValidVideoTime)
+					&& lastValidVideoTime >= 0.0
 					&& !DRMUtils.eq(lastValidVideoTime, recordVideoTime)) {
 				resumeRecord(data, recordVideoTime);
-				lastValidVideoTime = Double.NaN;
+				lastValidVideoTime = -1.0;
 			}
 			
 			metrics.updatePlayback(data.time, data.frame);
@@ -628,15 +650,43 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug(
-					"pauseTimeVideo={}, pauseTimeAudio={}, lastValidVideoTime={}, recordVideoTime={}, pendingPauseCutsCount{}",
-					pauseTimeVideo, pauseTimeAudio, lastValidVideoTime, recordVideoTime, pendingPauseCutsCount.get()
+					"pauseTimeVideo={}, pauseTimeAudio={}, lastValidVideoTime={}, recordVideoTime={}, pendingPauseCuts::size={}",
+					pauseTimeVideo, pauseTimeAudio, lastValidVideoTime, recordVideoTime, pendingPauseCuts.size()
 				);
 			}
 			
 			// Since audio won't update at this point, add audio cut manually
-			if(pendingPauseCutsCount.get() > 0) {
-				double startTime = pauseTimeAudio > 0.0 ? pauseTimeAudio : includeVideoFrame(lastValidVideoTime);
-				double endTime = recordVideoTime;
+			for(Cut.OfDouble cutVideo; (cutVideo = pendingPauseCuts.poll()) != null;) {
+				boolean isLast = pendingPauseCuts.isEmpty();
+				double startTime, endTime;
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Processing pending video cut: cut={}, isLast={}", cutVideo, isLast);
+				}
+				
+				if(isLast) {
+					if(pauseTimeAudio > 0.0) {
+						startTime = pauseTimeAudio;
+						endTime = recordVideoTime;
+					} else if(lastValidVideoTime > 0.0) {
+						startTime = includeVideoFrame(lastValidVideoTime);
+						endTime = recordVideoTime;
+					} else {
+						startTime = cutVideo.start();
+						endTime = cutVideo.end();
+					}
+					
+					double duration = endTime - startTime;
+					double maxDuration = cutVideo.length();
+					
+					if(duration > maxDuration) {
+						endTime = startTime + maxDuration;
+					}
+				} else {
+					startTime = cutVideo.start();
+					endTime = cutVideo.end();
+				}
+				
 				Cut.OfDouble cutAudio = new Cut.OfDouble(startTime, endTime);
 				audioCuts.add(cutAudio);
 				

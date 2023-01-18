@@ -40,7 +40,7 @@ public final class FFMpegTrimCommandGenerator {
 		builder.deleteCharAt(builder.length() - 1);
 		
 		// Generate the concat part of the command
-		String concatMap = "t" + nameSuffix;
+		String concatMap = "t" + nameSuffix + "0";
 		if(numOfCuts >= 2) {
 			builder.append(';');
 			IntStream.range(0, numOfCuts)

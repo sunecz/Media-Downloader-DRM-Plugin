@@ -1,5 +1,6 @@
 package sune.app.mediadownloader.drm.util;
 
+import java.util.Comparator;
 import java.util.Locale;
 
 public interface Cut<T> {
@@ -15,6 +16,10 @@ public interface Cut<T> {
 		public OfDouble(double start, double end) {
 			this.start = start;
 			this.end = end;
+		}
+		
+		public static Comparator<OfDouble> startComparator() {
+			return Comparator.comparing(OfDouble::start);
 		}
 		
 		public final Double start() { return start; }
@@ -34,6 +39,10 @@ public interface Cut<T> {
 		public OfLong(long start, long end) {
 			this.start = start;
 			this.end = end;
+		}
+		
+		public static Comparator<OfLong> startComparator() {
+			return Comparator.comparing(OfLong::start);
 		}
 		
 		public final Long start() { return start; }
