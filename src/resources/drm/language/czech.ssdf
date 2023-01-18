@@ -10,12 +10,15 @@
 					debug:   "Debug mód",
 					quality: "Kvalita",
 					record: {
-						useMediaFps: "Použít FPS mediálního zdroje, pokud je k dispozici",
-						defaultFps:  "Výchozí FPS"
+						useDisplayRefreshRate: "Použít obnovovací frekvenci displeje, je-li známá",
+						defaultFrameRate:      "Výchozí FPS nahrávání"
+					},
+					output: {
+						useMediaFrameRate: "Použít FPS mediálního zdroje, je-li k dispozici",
+						defaultFrameRate:  "Výchozí FPS výstupu"
 					},
 					process: {
-						keepRecordFile:     "Zachovat soubor záznamu",
-						keepTemporaryFiles: "Zachovat dočasné soubory"
+						keepRecordFile: "Zachovat soubor záznamu"
 					}
 				},
 				values: {

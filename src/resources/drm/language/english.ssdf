@@ -10,12 +10,15 @@
 					debug:   "Debug mode",
 					quality: "Quality",
 					record: {
-						useMediaFps: "Use FPS of media source, if available",
-						defaultFps:  "Default FPS"
+						useDisplayRefreshRate: "Use display refresh rate, if known",
+						defaultFrameRate:      "Default recording FPS"
+					},
+					output: {
+						useMediaFrameRate: "Use FPS of media source, if available",
+						defaultFrameRate:  "Default output FPS"
 					},
 					process: {
-						keepRecordFile:     "Keep record file",
-						keepTemporaryFiles: "Keep temporary files"
+						keepRecordFile: "Keep the recorded file"
 					}
 				},
 				values: {
