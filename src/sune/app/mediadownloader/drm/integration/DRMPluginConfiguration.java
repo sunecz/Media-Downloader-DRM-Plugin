@@ -263,8 +263,8 @@ public class DRMPluginConfiguration {
 			return translation;
 		}
 		
-		private static final String saveAudioDevice(AudioDevice audioDevice) {
-			return audioDevice.alternativeName().replaceAll("\\\\", "/");
+		private static final String saveAudioDevice(String audioDeviceAlternativeName) {
+			return audioDeviceAlternativeName.replaceAll("\\\\", "/");
 		}
 		
 		private static final String loadAudioDevice(String string) {
@@ -302,6 +302,8 @@ public class DRMPluginConfiguration {
 		}
 		
 		private final class AudioDeviceSelectField<T> extends FormField<T> {
+			
+			private volatile boolean itemsLoaded = false;
 			
 			private final ComboBox<AudioDevice> control;
 			private String loadedValue;
@@ -360,6 +362,7 @@ public class DRMPluginConfiguration {
 							});
 						}, MediaDownloader::error);
 						
+						itemsLoaded = true;
 						context.setProgress(ProgressContext.PROGRESS_DONE);
 					}
 					
@@ -382,7 +385,11 @@ public class DRMPluginConfiguration {
 			
 			@Override
 			public Object value() {
-				return saveAudioDevice(control.getSelectionModel().getSelectedItem());
+				return saveAudioDevice(
+					itemsLoaded
+						? control.getSelectionModel().getSelectedItem().alternativeName()
+						: loadedValue
+				);
 			}
 		}
 		
