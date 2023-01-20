@@ -133,12 +133,12 @@ public final class DRMInstance implements EventBindable<EventType> {
 			boolean isVirtualAudioDeviceAllowed = configuration.allowVirtualAudioDevice();
 			
 			if(logger.isDebugEnabled()) {
-				logger.debug("Custom virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
+				logger.debug("Builtin virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
 			}
 			
 			if(isVirtualAudioDeviceAllowed) {
 				if(logger.isDebugEnabled()) {
-					logger.debug("Trying to obtain the custom virtual audio device...");
+					logger.debug("Trying to obtain the builtin virtual audio device...");
 				}
 				
 				if((audioDevice = AudioDevices.findOfName(VirtualAudio.audioDeviceName())) != null) {
@@ -146,7 +146,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 				}
 				
 				if(logger.isDebugEnabled()) {
-					logger.debug("Custom virtual audio device not found.");
+					logger.debug("Builtin virtual audio device not found.");
 				}
 			}
 			
@@ -207,7 +207,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 			boolean isVirtualAudioDeviceAllowed = configuration.allowVirtualAudioDevice();
 			
 			if(logger.isDebugEnabled()) {
-				logger.debug("Custom virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
+				logger.debug("Builtin virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
 			}
 			
 			if(isVirtualAudioDeviceAllowed) {

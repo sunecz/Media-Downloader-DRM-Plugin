@@ -45,15 +45,15 @@ public final class DRMInitializer {
 		boolean isVirtualAudioDeviceAllowed = configuration.audioAllowVirtualDevice();
 		
 		if(logger.isDebugEnabled()) {
-			logger.debug("Custom virtual audio device is allowed: {}", isVirtualAudioDeviceAllowed);
+			logger.debug("Builtin virtual audio device is allowed: {}", isVirtualAudioDeviceAllowed);
 		}
 		
-		// Prepare the custom virtual audio device
+		// Prepare the builtin virtual audio device
 		if(isVirtualAudioDeviceAllowed) {
 			boolean isVirtualAudioDeviceRegistered = VirtualAudio.isRegistered();
 			
 			if(logger.isDebugEnabled()) {
-				logger.debug("Custom virtual audio device is registered: {}", isVirtualAudioDeviceRegistered);
+				logger.debug("Builtin virtual audio device is registered: {}", isVirtualAudioDeviceRegistered);
 			}
 			
 			// Prevent multiple virtual audio device registration
@@ -62,11 +62,15 @@ public final class DRMInitializer {
 				Exception exception = null;
 				
 				if(logger.isDebugEnabled()) {
-					logger.debug("Registering custom virtual audio device...");
+					logger.debug("Registering builtin virtual audio device...");
 				}
 				
 				try {
 					int exitCode = VirtualAudio.register();
+					
+					if(logger.isDebugEnabled()) {
+						logger.debug("Builtin virtual audio device registration: exitCode={}.", exitCode);
+					}
 					
 					if(exitCode == VirtualAudio.RESULT_FAIL_PROC_CALL) {
 						if(FXUtils.isInitialized()) {
@@ -88,12 +92,12 @@ public final class DRMInitializer {
 				}
 				
 				if(logger.isDebugEnabled()) {
-					logger.debug("Custom virtual audio device register result: success={}.", success);
+					logger.debug("Builtin virtual audio device register result: success={}.", success);
 				}
 				
 				if(!success && !FXUtils.isInitialized()) {
 					Exception softException = new IllegalStateException(
-						"Unable to register custom virtual audio device.",
+						"Unable to register builtin virtual audio device.",
 						exception
 					);
 					
@@ -103,7 +107,7 @@ public final class DRMInitializer {
 			}
 			
 			if(logger.isDebugEnabled()) {
-				logger.debug("Custom virtual audio device name: {}", VirtualAudio.audioDeviceName());
+				logger.debug("Builtin virtual audio device name: {}", VirtualAudio.audioDeviceName());
 			}
 		}
 	}
