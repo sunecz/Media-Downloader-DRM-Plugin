@@ -15,6 +15,7 @@ public final class DRMConfiguration {
 	private final Quality quality;
 	private final String captureAudioDeviceName;
 	private final String renderAudioDeviceName;
+	private final boolean allowVirtualAudioDevice;
 	private final boolean recordUseDisplayRefreshRate;
 	private final double recordFrameRate;
 	private final boolean outputUseMediaFrameRate;
@@ -23,8 +24,8 @@ public final class DRMConfiguration {
 	
 	private DRMConfiguration(Path output, Media media, boolean detectFrameRate, double analyzeDuration,
 			Quality quality, String captureAudioDeviceName, String renderAudioDeviceName,
-			boolean recordUseDisplayRefreshRate, double recordFrameRate, boolean outputUseMediaFrameRate,
-			double outputFrameRate, boolean keepRecordFile) {
+			boolean allowVirtualAudioDevice, boolean recordUseDisplayRefreshRate, double recordFrameRate,
+			boolean outputUseMediaFrameRate, double outputFrameRate, boolean keepRecordFile) {
 		this.output = output;
 		this.media = media;
 		this.detectFrameRate = detectFrameRate;
@@ -32,6 +33,7 @@ public final class DRMConfiguration {
 		this.quality = quality;
 		this.captureAudioDeviceName = captureAudioDeviceName;
 		this.renderAudioDeviceName = renderAudioDeviceName;
+		this.allowVirtualAudioDevice = allowVirtualAudioDevice;
 		this.recordUseDisplayRefreshRate = recordUseDisplayRefreshRate;
 		this.recordFrameRate = recordFrameRate;
 		this.outputUseMediaFrameRate = outputUseMediaFrameRate;
@@ -67,6 +69,10 @@ public final class DRMConfiguration {
 		return renderAudioDeviceName;
 	}
 	
+	public boolean allowVirtualAudioDevice() {
+		return allowVirtualAudioDevice;
+	}
+	
 	public boolean recordUseDisplayRefreshRate() {
 		return recordUseDisplayRefreshRate;
 	}
@@ -100,6 +106,7 @@ public final class DRMConfiguration {
 		private Quality quality;
 		private String captureAudioDeviceName;
 		private String renderAudioDeviceName;
+		private boolean allowVirtualAudioDevice;
 		private boolean recordUseDisplayRefreshRate;
 		private double recordFrameRate;
 		private boolean outputUseMediaFrameRate;
@@ -114,6 +121,7 @@ public final class DRMConfiguration {
 			quality = Quality.LOSSLESS;
 			captureAudioDeviceName = "auto";
 			renderAudioDeviceName = "auto";
+			allowVirtualAudioDevice = false;
 			recordUseDisplayRefreshRate = true;
 			recordFrameRate = DEFAULT_RECORD_FRAME_RATE;
 			outputUseMediaFrameRate = true;
@@ -136,8 +144,8 @@ public final class DRMConfiguration {
 			
 			return new DRMConfiguration(Objects.requireNonNull(output), Objects.requireNonNull(media),
 				detectFrameRate, analyzeDuration, quality, captureAudioDeviceName, renderAudioDeviceName,
-				recordUseDisplayRefreshRate, recordFrameRate, outputUseMediaFrameRate, outputFrameRate,
-				keepRecordFile);
+				allowVirtualAudioDevice, recordUseDisplayRefreshRate, recordFrameRate, outputUseMediaFrameRate,
+				outputFrameRate, keepRecordFile);
 		}
 		
 		public Builder output(Path output) {
@@ -181,6 +189,11 @@ public final class DRMConfiguration {
 		
 		public Builder autoRenderAudioDeviceName() {
 			return renderAudioDeviceName("auto");
+		}
+		
+		public Builder allowVirtualAudioDevice(boolean allowVirtualAudioDevice) {
+			this.allowVirtualAudioDevice = allowVirtualAudioDevice;
+			return this;
 		}
 		
 		public Builder recordUseDisplayRefreshRate(boolean recordUseDisplayRefreshRate) {
@@ -234,6 +247,10 @@ public final class DRMConfiguration {
 		
 		public String renderAudioDeviceName() {
 			return renderAudioDeviceName;
+		}
+		
+		public boolean allowVirtualAudioDevice() {
+			return allowVirtualAudioDevice;
 		}
 		
 		public boolean recordUseDisplayRefreshRate() {

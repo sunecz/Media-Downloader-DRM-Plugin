@@ -21,7 +21,14 @@ public final class DRMCommandFactory {
 		builder.append(" -y"); // Rewrite the output file, if it exists
 		
 		builder.append(" -f dshow"); // Record audio
-		builder.append(" -thread_queue_size 1024 -probesize 16M -sample_rate %{sample_rate}d -channel_layout stereo"); // Input audio settings
+		builder.append(" -thread_queue_size 1024 -probesize 16M"); // Input audio settings
+		
+		// The builtin virtual audio device does not support sample_rate argument
+		if(!configuration.allowVirtualAudioDevice()) {
+			builder.append(" -sample_rate %{sample_rate}d"); // Input audio settings
+		}
+		
+		builder.append(" -channel_layout stereo"); // Input audio settings
 		builder.append(" -audio_buffer_size %{audio_buffer_size}d"); // Set audio buffer size for latency
 		builder.append(" -copyts -start_at_zero"); // Help the synchronization
 		builder.append(" -i audio=\"%{audio_device_name}s\""); // Record specific audio input

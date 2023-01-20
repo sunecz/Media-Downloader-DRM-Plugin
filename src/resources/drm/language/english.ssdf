@@ -10,8 +10,9 @@
 					debug:   "Debug mode",
 					quality: "Quality",
 					audio: {
-						captureDeviceName: "Capture audio device",
-						renderDeviceName:  "Render audio device"
+						captureDeviceName:  "Capture audio device",
+						renderDeviceName:   "Render audio device",
+						allowVirtualDevice: "Allow builtin virtual audio device"
 					},
 					record: {
 						useDisplayRefreshRate: "Use display refresh rate, if known",
@@ -93,6 +94,15 @@
 				analyze:      "Analysis",
 				record:       "Recording",
 				post_process: "Post process"
+			},
+			error: {
+				virtual_device: {
+					register: {
+						title: "Builtin virtual audio device",
+						text:  "Registration of builtin virtual audio device failed. "
+						     + "Please run the application as an adminitrator."
+					}
+				}
 			}
 		}
 	}

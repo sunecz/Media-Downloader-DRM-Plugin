@@ -22,7 +22,7 @@ public final class AudioDevices {
 	
 	public static final boolean isVirtualDevice(String audioDeviceName) {
 		String lowerCaseName = audioDeviceName.toLowerCase();
-		return lowerCaseName.contains("cable output") || lowerCaseName.contains("virtual");
+		return lowerCaseName.contains("cable output");
 	}
 	
 	public static final List<AudioDevice> directShowDevices() throws Exception {

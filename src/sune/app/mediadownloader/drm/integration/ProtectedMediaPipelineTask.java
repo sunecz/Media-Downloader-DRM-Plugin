@@ -296,6 +296,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			boolean keepRecordFile = pluginConfiguration.processKeepRecordFile();
 			String captureAudioDeviceName = pluginConfiguration.audioCaptureDeviceName();
 			String renderAudioDeviceName = pluginConfiguration.audioRenderDeviceName();
+			boolean isVirtualAudioDeviceAllowed = pluginConfiguration.audioAllowVirtualDevice();
 			
 			// Configure the DRM
 			DRMConfiguration configuration = new DRMConfiguration.Builder()
@@ -310,6 +311,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 				.keepRecordFile(keepRecordFile)
 				.captureAudioDeviceName(captureAudioDeviceName)
 				.renderAudioDeviceName(renderAudioDeviceName)
+				.allowVirtualAudioDevice(isVirtualAudioDeviceAllowed)
 				.build();
 			
 			// Prepare the DRM instance

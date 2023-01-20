@@ -26,6 +26,7 @@ public final class DRMPlugin extends PluginBase {
 		PipelineTaskRegistry.register("ProtectedMediaPipelineTask", ProtectedMediaPipelineTask.class);
 		IntegrationUtils.setPluginContext(getContext());
 		DRMInitializer.initializeClasses();
+		DRMInitializer.initializeVirtualAudio();
 	}
 	
 	@Override

@@ -56,7 +56,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 	private final String pathPrefixLib = "lib/drm/";
 	private final String versionLib = "0002";
 	private final String versionCef = "0003";
-	private final String versionRes = "0001";
+	private final String versionRes = "0002";
 	
 	private final boolean isDebug;
 	private final Path logFile;

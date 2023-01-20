@@ -41,6 +41,7 @@ import sune.app.mediadownloader.drm.util.Playback;
 import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
+import sune.app.mediadownloader.drm.util.VirtualAudio;
 import sune.util.ssdf2.SSDCollection;
 
 public final class DRMInstance implements EventBindable<EventType> {
@@ -129,23 +130,45 @@ public final class DRMInstance implements EventBindable<EventType> {
 		}
 		
 		if(isAutomaticMode) {
+			boolean isVirtualAudioDeviceAllowed = configuration.allowVirtualAudioDevice();
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("Custom virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
+			}
+			
+			if(isVirtualAudioDeviceAllowed) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("Trying to obtain the custom virtual audio device...");
+				}
+				
+				if((audioDevice = AudioDevices.findOfName(VirtualAudio.audioDeviceName())) != null) {
+					return audioDevice;
+				}
+				
+				if(logger.isDebugEnabled()) {
+					logger.debug("Custom virtual audio device not found.");
+				}
+			}
+			
 			if(logger.isDebugEnabled()) {
 				logger.debug("Trying to find a virtual capture audio device...");
 			}
 			
-			// If no virtual device is available, try to get the Stereo mix audio device
-			if((audioDevice = AudioDevices.virtualDevice()) == null) {
-				if(logger.isDebugEnabled()) {
-					logger.debug(
-						"Virtual capture audio device not found. Trying to find Stereo mix capture audio device..."
-					);
-				}
-				
-				// Fail if no audio device matches
-				if((audioDevice = AudioDevices.stereoMixDevice()) == null) {
-					throw new IllegalStateException("Unable to obtain Stereo mix capture audio device.");
-				}
+			if((audioDevice = AudioDevices.virtualDevice()) != null) {
+				return audioDevice;
 			}
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug(
+					"Virtual capture audio device not found. Trying to find Stereo mix capture audio device..."
+				);
+			}
+			
+			if((audioDevice = AudioDevices.stereoMixDevice()) != null) {
+				return audioDevice;
+			}
+			
+			throw new IllegalStateException("Unable to obtain either virtual or stereo mix capture audio device.");
 		} else {
 			if(logger.isDebugEnabled()) {
 				logger.debug("Constructing capture audio device from name: {}", audioDeviceName);
@@ -180,6 +203,22 @@ public final class DRMInstance implements EventBindable<EventType> {
 		if(isAutomaticMode) {
 			String alternativeName = captureAudioDevice.alternativeName();
 			AudioDevice tempDevice;
+			
+			boolean isVirtualAudioDeviceAllowed = configuration.allowVirtualAudioDevice();
+			
+			if(logger.isDebugEnabled()) {
+				logger.debug("Custom virtual audio device allowed: {}.", isVirtualAudioDeviceAllowed);
+			}
+			
+			if(isVirtualAudioDeviceAllowed) {
+				if(logger.isDebugEnabled()) {
+					logger.debug("Trying to obtain the default render audio device...");
+				}
+				
+				// If no default render audio device is found, i.e. is null, no redirection
+				// will take place, which is actually OK in this case.
+				return AudioDevices.defaultRenderAudioDevice();
+			}
 			
 			if(logger.isDebugEnabled()) {
 				logger.debug("Checking whether a virtual capture audio device has been selected...");

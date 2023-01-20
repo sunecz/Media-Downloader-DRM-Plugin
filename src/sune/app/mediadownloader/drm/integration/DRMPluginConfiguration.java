@@ -52,6 +52,7 @@ public class DRMPluginConfiguration {
 	private static final String PROPERTY_QUALITY = "quality";
 	private static final String PROPERTY_AUDIO_CAPTURE_DEVICE_NAME = "audio.captureDeviceName";
 	private static final String PROPERTY_AUDIO_RENDER_DEVICE_NAME = "audio.renderDeviceName";
+	private static final String PROPERTY_AUDIO_ALLOW_VIRTUAL_DEVICE = "audio.allowVirtualDevice";
 	private static final String PROPERTY_DEBUG = "debug";
 	
 	private static DRMPluginConfiguration instance;
@@ -67,6 +68,7 @@ public class DRMPluginConfiguration {
 	private Quality quality;
 	private String audio_captureDeviceName;
 	private String audio_renderDeviceName;
+	private boolean audio_allowVirtualDevice;
 	private boolean debug;
 	
 	private DRMPluginConfiguration(PluginConfiguration configuration) {
@@ -111,6 +113,9 @@ public class DRMPluginConfiguration {
 		builder.addProperty(ConfigurationProperty.ofString(PROPERTY_AUDIO_RENDER_DEVICE_NAME)
 			.inGroup(group)
 			.withDefaultValue("auto"));
+		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_AUDIO_ALLOW_VIRTUAL_DEVICE)
+			.inGroup(group)
+			.withDefaultValue(false));
 		builder.addProperty(ConfigurationProperty.ofBoolean(PROPERTY_RECORD_USE_DISPLAY_REFRESH_RATE)
 			.inGroup(group)
 			.withDefaultValue(true));
@@ -180,6 +185,7 @@ public class DRMPluginConfiguration {
 		quality = Quality.of(configuration.stringValue(PROPERTY_QUALITY));
 		audio_captureDeviceName = fixAudioDeviceName(configuration.stringValue(PROPERTY_AUDIO_CAPTURE_DEVICE_NAME));
 		audio_renderDeviceName = fixAudioDeviceName(configuration.stringValue(PROPERTY_AUDIO_RENDER_DEVICE_NAME));
+		audio_allowVirtualDevice = configuration.booleanValue(PROPERTY_AUDIO_ALLOW_VIRTUAL_DEVICE);
 		debug = configuration.booleanValue(PROPERTY_DEBUG);
 	}
 	
@@ -213,6 +219,10 @@ public class DRMPluginConfiguration {
 	
 	public String audioRenderDeviceName() {
 		return audio_renderDeviceName;
+	}
+	
+	public boolean audioAllowVirtualDevice() {
+		return audio_allowVirtualDevice;
 	}
 	
 	public boolean debug() {

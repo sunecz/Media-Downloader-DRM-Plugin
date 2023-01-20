@@ -10,8 +10,9 @@
 					debug:   "Debug mód",
 					quality: "Kvalita",
 					audio: {
-						captureDeviceName: "Nahrávací audio zařízení",
-						renderDeviceName:  "Přehrávací audio zařízení"
+						captureDeviceName:  "Nahrávací audio zařízení",
+						renderDeviceName:   "Přehrávací audio zařízení",
+						allowVirtualDevice: "Povolit vestavěné virtuální audio zařízení"
 					},
 					record: {
 						useDisplayRefreshRate: "Použít obnovovací frekvenci displeje, je-li známá",
@@ -93,6 +94,15 @@
 				analyze:      "Analýza",
 				record:       "Nahrávání",
 				post_process: "Zpracování"
+			},
+			error: {
+				virtual_device: {
+					register: {
+						title: "Vestavěné virtuální audio zařízení",
+						text:  "Registrace vestavěného virtuálního audio zařízení selhala. "
+						     + "Prosím, spusťte program jako administrátor."
+					}
+				}
 			}
 		}
 	}
