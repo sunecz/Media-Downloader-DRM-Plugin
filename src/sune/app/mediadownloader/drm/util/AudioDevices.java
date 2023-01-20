@@ -83,6 +83,14 @@ public final class AudioDevices {
 					.findFirst().orElse(null);
 	}
 	
+	public static final AudioDevice defaultCaptureAudioDevice() throws Exception {
+		return SoundVolumeView.defaultAudioDevice(Direction.CAPTURE);
+	}
+	
+	public static final AudioDevice defaultRenderAudioDevice() throws Exception {
+		return SoundVolumeView.defaultAudioDevice(Direction.RENDER);
+	}
+	
 	public static final class AudioDevice {
 		
 		private final String name;
@@ -109,6 +117,33 @@ public final class AudioDevices {
 		
 		public Direction direction() {
 			return direction;
+		}
+		
+		@Override
+		public int hashCode() {
+			return Objects.hash(alternativeName, direction, name);
+		}
+		
+		@Override
+		public boolean equals(Object obj) {
+			if(this == obj)
+				return true;
+			if(obj == null)
+				return false;
+			if(getClass() != obj.getClass())
+				return false;
+			AudioDevice other = (AudioDevice) obj;
+			return Objects.equals(alternativeName, other.alternativeName)
+			        && direction == other.direction
+			        && Objects.equals(name, other.name);
+		}
+		
+		@Override
+		public String toString() {
+			return String.format(
+				"AudioDevice(name=%s, alternativeName=%s, direction=%s)",
+				name, alternativeName, direction
+			);
 		}
 		
 		public static final class Builder {

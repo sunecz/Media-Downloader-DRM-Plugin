@@ -123,4 +123,52 @@ public final class SoundVolumeView {
 		
 		return audioDevices;
 	}
+	
+	public static final AudioDevice defaultAudioDevice(Direction direction) throws Exception {
+		AudioDevice defaultAudioDevice = null;
+		
+		try(ReadOnlyProcess process = Processes.createSynchronous(binaryPath())) {
+			Path output = NIO.tempFile("svv-default_audio_device-", ".json");
+			
+			process.execute(Utils.format(
+				"/SaveFileEncoding 3 /Columns Name,DeviceName,Type,Default,Command-LineFriendlyID " +
+				"/sjson \"%{output}s\"",
+				"output", output.toAbsolutePath().toString()
+			));
+			
+			try(InputStream stream = Files.newInputStream(output, StandardOpenOption.READ)) {
+				SSDCollection json = JSON.read(stream);
+				
+				for(SSDCollection item : json.collectionsIterable()) {
+					String itemType = item.getDirectString("Type");
+					
+					if(!itemType.equals("Device")) {
+						continue;
+					}
+					
+					String itemName = item.getDirectString("Name", "UNSET");
+					String itemDeviceName = item.getDirectString("Device Name", "UNSET");
+					String itemDefault = item.getDirectString("Default", "UNSET");
+					String itemFriendlyName = item.getDirectString("Command-Line Friendly ID", "UNSET");
+					
+					String deviceName = String.format("%s (%s)", itemName, itemDeviceName);
+					String deviceAlternativeName = itemFriendlyName;
+					Direction deviceDefaultDirection = AudioDevice.Direction.of(itemDefault);
+					
+					if(deviceDefaultDirection != direction) {
+						continue;
+					}
+					
+					defaultAudioDevice = AudioDevices.newDevice(
+						deviceName, deviceAlternativeName, deviceDefaultDirection
+					);
+					
+					// Device found, no need to continue
+					break;
+				}
+			}
+		}
+		
+		return defaultAudioDevice;
+	}
 }
