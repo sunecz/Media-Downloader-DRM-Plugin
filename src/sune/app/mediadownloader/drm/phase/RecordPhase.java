@@ -90,17 +90,15 @@ public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	public RecordPhase(DRMContext context, double duration, double recordFrameRate, double outputFrameRate,
 			int sampleRate) {
 		this.context = context;
-		this.recordPath = ensureMKVPath(context.configuration().output());
+		this.recordPath = recordPath(context.configuration().output());
 		this.duration = duration;
 		this.recordFrameRate = recordFrameRate;
 		this.outputFrameRate = outputFrameRate;
 		this.sampleRate = sampleRate;
 	}
 	
-	private static final Path ensureMKVPath(Path path) {
-		String fileName = path.getFileName().toString();
-		if(Utils.fileType(fileName).equalsIgnoreCase("mkv")) return path; // Is MKV
-		return path.resolveSibling(Utils.fileNameNoType(fileName) + ".mkv");
+	private static final Path recordPath(Path path) {
+		return path.resolveSibling(path.getFileName().toString() + ".record.mkv");
 	}
 	
 	private final double recordVideoTime() {
