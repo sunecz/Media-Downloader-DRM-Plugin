@@ -102,8 +102,8 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		boolean debugMode = configuration.debug();
 		Path pathLogFile = LOG_PATH;
 		
-		// Backup existing log file, if it already exists
-		if(NIO.exists(pathLogFile)) {
+		// Backup existing log file, if it already exists and is not empty
+		if(NIO.exists(pathLogFile) && NIO.size(pathLogFile) > 0L) {
 			Info pathInfo = Utils.OfPath.info(pathLogFile);
 			Path newPath = null;
 			
