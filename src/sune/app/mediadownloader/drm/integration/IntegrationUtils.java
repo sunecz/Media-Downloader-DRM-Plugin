@@ -40,7 +40,7 @@ public final class IntegrationUtils {
 		Path path = Ignore.call(() -> Path.of(MediaDownloader.class.getProtectionDomain().getCodeSource().getLocation().toURI()));
 		// Special case for running from a build directory
 		if(path != null && !path.getFileName().toString().endsWith(".jar")) {
-			path = path.getParent().resolve("jar/media-downloader.jar");
+			path = path.getParent().resolve("build/media-downloader.jar");
 		}
 		return path.toAbsolutePath();
 	}
