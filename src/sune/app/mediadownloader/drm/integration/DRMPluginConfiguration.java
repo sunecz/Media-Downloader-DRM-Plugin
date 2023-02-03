@@ -100,7 +100,7 @@ public class DRMPluginConfiguration {
 	}
 	
 	private static final String fixAudioDeviceName(String audioDeviceName) {
-		return audioDeviceName.replaceAll("/", "\\\\");
+		return audioDeviceName != null ? audioDeviceName.replaceAll("/", "\\\\") : "auto";
 	}
 	
 	protected static final PluginConfiguration.Builder builder(String configurationName) {
