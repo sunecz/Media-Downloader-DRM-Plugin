@@ -12,6 +12,7 @@ import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import sune.app.mediadown.Arguments;
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.StartupWindow;
 import sune.app.mediadown.plugin.PluginBootstrap;
@@ -101,9 +102,11 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		DRMPluginConfiguration configuration = DRMPluginConfiguration.initialize(context().getConfiguration());
 		boolean debugMode = configuration.debug();
 		Path pathLogFile = LOG_PATH;
+		Arguments arguments = MediaDownloader.arguments();
+		boolean backupLogFile = !arguments.booleanValue("drm-no-log-backup");
 		
 		// Backup existing log file, if it already exists and is not empty
-		if(NIO.exists(pathLogFile) && NIO.size(pathLogFile) > 0L) {
+		if(backupLogFile && NIO.exists(pathLogFile) && NIO.size(pathLogFile) > 0L) {
 			Info pathInfo = Utils.OfPath.info(pathLogFile);
 			Path newPath = null;
 			
@@ -147,7 +150,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		builder.debug(debugMode);
 		
 		// Optionally generate hash lists, if required
-		builder.generateHashLists(MediaDownloader.arguments().booleanValue("drm-generate-lists"));
+		builder.generateHashLists(arguments.booleanValue("drm-generate-lists"));
 		
 		DRMBootstrap bootstrap = builder.build();
 		addDefaultBootstrapListeners(bootstrap, window != null ? (text) -> window.setText(text) : (text) -> {});

@@ -246,6 +246,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		args.add("--plugin drm");
 		args.add("--class sune.app.mediadownloader.drm.DRMBootstrapCLI");
 		args.add("--download-widevine-cdm");
+		args.add("--drm-no-log-backup");
 		String command = args.stream().reduce("", (a, b) -> a + " " + b).stripLeading();
 		Path exePath = Path.of(ProcessHandle.current().info().command().orElseThrow()).toAbsolutePath();
 		Consumer<String> parser = new DownloadWidevineCDMProcessLineParser(dummyEventRegistry);
