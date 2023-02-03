@@ -5,7 +5,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 
 import org.cef.CefApp;
 import org.cef.CefClient;
@@ -23,12 +22,11 @@ import sune.app.mediadownloader.drm.util.CEFLog;
 
 public final class DRM {
 	
-	private static boolean DEBUG;
-	private static Path LOG_FILE;
 	private static final Logger logger = DRMLog.get();
 	
+	private static boolean DEBUG;
+	private static Path LOG_FILE;
 	private static boolean CEF_LOG_ENABLED = false;
-	private static final UUID uuid = UUID.randomUUID();
 	
 	private static final String[] cefAppArgs;
 	private static boolean cefStarted;
@@ -82,7 +80,7 @@ public final class DRM {
 	}
 	
 	public static final void setLogFile(Path path) {
-		LOG_FILE = path;
+		LOG_FILE = path.toAbsolutePath();
 	}
 	
 	public static final Path getLogFile() {
@@ -95,31 +93,43 @@ public final class DRM {
 	
 	public static final CefApp getApplication() {
 		ensureCefStarted();
-		if(CefApp.getState() != CefApp.CefAppState.INITIALIZED) {
-			CefSettings settings = new CefSettings();
-			if(DEBUG) {
-				settings.remote_debugging_port = 8080;
-			}
-			Path pathLogFile = LOG_FILE;
-			if(pathLogFile == null) {
-				String logFileName = "cef-debug-" + uuid.toString() + ".log";
-				pathLogFile = PathSystem.getPath(DRM.class, logFileName).toAbsolutePath();
-			}
-			settings.log_severity = LogSeverity.LOGSEVERITY_ERROR;
-			settings.log_file = pathLogFile.toString();
-			boolean cefLogEnabled = isCefLogEnabled();
-			if(DEBUG || cefLogEnabled) {
-				settings.log_severity = LogSeverity.LOGSEVERITY_VERBOSE;
-				if(cefLogEnabled) {
-					// Manual Widevine CDM download requires CefLog functionality
-					CEFLog.initialize(pathLogFile);
-				}
-			}
-			if(logger.isDebugEnabled())
-				logger.debug("Log file: {}", pathLogFile.toString());
-			settings.windowless_rendering_enabled = false;
-			cefApp = CefApp.getInstance(cefAppArgs, settings);
+		
+		if(CefApp.getState() == CefApp.CefAppState.INITIALIZED) {
+			return cefApp;
 		}
+		
+		CefSettings settings = new CefSettings();
+		boolean cefLogEnabled = isCefLogEnabled();
+		Path pathLogFile = LOG_FILE;
+		
+		// For now, force the log file to be present
+		if(pathLogFile == null) {
+			throw new IllegalStateException("Must specify the log file");
+		}
+		
+		settings.windowless_rendering_enabled = false;
+		settings.log_severity = LogSeverity.LOGSEVERITY_ERROR; // Always log at least errors
+		settings.log_file = pathLogFile.toString();
+		
+		if(DEBUG) {
+			settings.remote_debugging_port = 8080;
+		}
+		
+		if(DEBUG || cefLogEnabled) {
+			settings.log_severity = LogSeverity.LOGSEVERITY_VERBOSE;
+			
+			if(cefLogEnabled) {
+				// Manual Widevine CDM download requires CefLog functionality
+				CEFLog.initialize(pathLogFile);
+			}
+		}
+		
+		if(logger.isDebugEnabled()) {
+			logger.debug("Log file: {}", pathLogFile.toString());
+		}
+		
+		cefApp = CefApp.getInstance(cefAppArgs, settings);
+		
 		return cefApp;
 	}
 	
