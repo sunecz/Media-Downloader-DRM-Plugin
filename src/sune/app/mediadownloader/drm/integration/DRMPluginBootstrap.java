@@ -69,17 +69,17 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 			receiver.receive(format("Checking %s", context.name()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARY_LOADING, (context) -> {
-			receiver.receive(format("Loading library %s...", context.library().getName()));
+			receiver.receive(format("Loading library %s...", context.library().name()));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARY_LOADED, (context) -> {
-			receiver.receive(format("Loading library %s... %s", context.library().getName(),
+			receiver.receive(format("Loading library %s... %s", context.library().name(),
 			                        context.success() ? "done" : "error"));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARIES_ERROR, (context) -> {
 			String text = format("Cannot load libraries (%d)", context.libraries().size());
 			StringBuilder content = new StringBuilder();
 			for(Library library : context.libraries()) {
-				content.append(format("%s (%s)\n", library.getName(), library.getPath()));
+				content.append(format("%s (%s)\n", library.name(), library.path()));
 			}
 			String errorText = format("Critical error: %s\n\n%s\n", text, content.toString());
 			context.context().error(new IllegalStateException(errorText));

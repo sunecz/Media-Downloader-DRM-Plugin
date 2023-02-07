@@ -27,12 +27,12 @@ import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventBindable;
 import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
+import sune.app.mediadown.event.LibraryEvent;
 import sune.app.mediadown.event.Listener;
 import sune.app.mediadown.event.tracker.DownloadTracker;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.library.Libraries;
 import sune.app.mediadown.library.Library;
-import sune.app.mediadown.library.LibraryEvent;
 import sune.app.mediadown.update.FileChecker;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
@@ -145,7 +145,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		FileChecker checker = localFileChecker(dirRelativePath);
 		Path dir = PathSystem.getPath(clazz, dirRelativePath);
 		libraries.all().forEach((library) -> {
-			checker.addEntry(dir.resolve(library.getPath()).toAbsolutePath(), Requirements.ANY, version);
+			checker.addEntry(dir.resolve(library.path()).toAbsolutePath(), Requirements.ANY, version);
 		});
 		return checker;
 	}
@@ -268,35 +268,37 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		}
 		
 		Map<String, Library> map = libraries.all().stream()
-				.filter((library) -> !ModuleLoader.isLoaded(library.getName()))
-				.collect(Collectors.toMap(Library::getName, Function.identity(),
+				.filter((library) -> !ModuleLoader.isLoaded(library.name()))
+				.collect(Collectors.toMap(Library::name, Function.identity(),
 				                          (a, b) -> a, () -> new LinkedHashMap<>()));
 		
 		if(!map.isEmpty()) {
 			List<Library> notLoaded = new LinkedList<>();
 			
-			libraries.on(LibraryEvent.LOADING, (library) -> {
+			libraries.addEventListener(LibraryEvent.LOADING, (library) -> {
 				eventRegistry.call(DRMBootstrapEvent.LIBRARY_LOADING, new LibraryEventContext<>(DRMBootstrap.this, library, false));
 			});
 			
-			libraries.on(LibraryEvent.LOADED, (library) -> {
+			libraries.addEventListener(LibraryEvent.LOADED, (library) -> {
 				eventRegistry.call(DRMBootstrapEvent.LIBRARY_LOADED, new LibraryEventContext<>(DRMBootstrap.this, library, true));
 			});
 			
-			libraries.on(LibraryEvent.NOT_LOADED, (pair) -> {
+			libraries.addEventListener(LibraryEvent.NOT_LOADED, (pair) -> {
 				notLoaded.add(pair.a);
 			});
 			
 			// Load all registered libraries
-			boolean success = libraries.load();
+			boolean success = libraries.load(ClassLoader.getSystemClassLoader());
 			
 			if(!success) {
 				eventRegistry.call(DRMBootstrapEvent.LIBRARIES_ERROR, new LibrariesEventContext<>(DRMBootstrap.this, notLoaded));
 			}
 			
 			// Throw an exception that may have occurred, if any
-			Exception ex = exception.get();
-			if(ex != null) throw ex;
+			Exception ex;
+			if((ex = exception.get()) != null) {
+				throw ex;
+			}
 		}
 		
 		// Add the native libraries to paths so that they can be loaded
