@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.event.DownloadEvent;
+import sune.app.mediadown.util.JSON;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
@@ -166,7 +167,7 @@ public final class WidevineCDM {
 			String content = response.content;
 			int index = content.indexOf('{');
 			if(index >= 0) content = content.substring(index);
-			SSDCollection json = SSDF.readJSON(content);
+			SSDCollection json = JSON.read(content);
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.END_REQUEST);
 			return json;

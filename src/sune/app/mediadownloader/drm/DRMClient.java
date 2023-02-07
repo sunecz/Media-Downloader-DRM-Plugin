@@ -20,10 +20,10 @@ import org.cef.handler.CefMessageRouterHandlerAdapter;
 import org.cef.network.CefRequest.TransitionType;
 import org.slf4j.Logger;
 
+import sune.app.mediadown.util.JSON;
 import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.util.ssdf2.SSDCollection;
-import sune.util.ssdf2.SSDF;
 
 public final class DRMClient {
 	
@@ -103,7 +103,7 @@ public final class DRMClient {
 			index = Integer.valueOf(requestNameData.substring(delim + 1, requestNameData.length() - 1));
 		}
 		String value = request.substring(requestNameData.length());
-		SSDCollection json = SSDF.readJSON(value);
+		SSDCollection json = JSON.read(value);
 		boolean handled = false;
 		JSRequest result = jsResults.get(requestName);
 		if(result != null) {
