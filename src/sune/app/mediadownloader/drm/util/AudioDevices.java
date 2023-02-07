@@ -5,11 +5,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.ffmpeg.FFmpeg;
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice.Direction;
 
 public final class AudioDevices {
@@ -222,10 +222,10 @@ public final class AudioDevices {
 	
 	private static final class DirectShowAudioDevicesParser implements Consumer<String> {
 		
-		private static final Pattern PATTERN_NAME
-			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+\"([^\"]+)\"\\s+\\(([^\\)]+)\\)\\s*$");
-		private static final Pattern PATTERN_ALT_NAME
-			= Pattern.compile("^\\[dshow\\s+[^\\]]+\\]\\s+Alternative name \"([^\"]+)\"\\s*$");
+		private static final Regex PATTERN_NAME
+			= Regex.of("^\\[dshow\\s+[^\\]]+\\]\\s+\"([^\"]+)\"\\s+\\(([^\\)]+)\\)\\s*$");
+		private static final Regex PATTERN_ALT_NAME
+			= Regex.of("^\\[dshow\\s+[^\\]]+\\]\\s+Alternative name \"([^\"]+)\"\\s*$");
 		
 		private final List<AudioDevice> devices = new ArrayList<>();
 		private AudioDevice.Builder audioDevice;

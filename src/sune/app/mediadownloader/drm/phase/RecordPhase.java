@@ -12,7 +12,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 
@@ -23,6 +22,7 @@ import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils;
@@ -44,8 +44,8 @@ import sune.app.mediadownloader.drm.util.WindowsKill;
 public class RecordPhase implements PipelineTask<RecordPhaseResult> {
 	
 	private static final Logger logger = DRMLog.get();
-	private static final Pattern PATTERN_LINE_PROGRESS
-		= Pattern.compile("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
+	private static final Regex PATTERN_LINE_PROGRESS
+		= Regex.of("^frame=\\s*(\\d+)\\s+fps=\\s*([^\\s]+)\\s+.*?time=([^\\s]+)\\s+.*$");
 	
 	private final DRMContext context;
 	private final Path recordPath;

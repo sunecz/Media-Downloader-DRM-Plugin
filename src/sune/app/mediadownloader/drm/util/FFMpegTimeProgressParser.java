@@ -2,10 +2,10 @@ package sune.app.mediadownloader.drm.util;
 
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMLog;
 import sune.app.mediadownloader.drm.tracker.TimeUpdatableTracker;
@@ -13,7 +13,7 @@ import sune.app.mediadownloader.drm.tracker.TimeUpdatableTracker;
 public class FFMpegTimeProgressParser implements Consumer<String> {
 	
 	private static final Logger logger = DRMLog.get();
-	private static final Pattern PATTERN = Pattern.compile("^(?:frame|size)=.*?time=(.*?)\\s.*$");
+	private static final Regex PATTERN = Regex.of("^(?:frame|size)=.*?time=(.*?)\\s.*$");
 	
 	private final TimeUpdatableTracker tracker;
 	

@@ -10,7 +10,6 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.BiPredicate;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import sune.app.mediadown.Arguments;
 import sune.app.mediadown.MediaDownloader;
@@ -23,6 +22,7 @@ import sune.app.mediadown.plugin.PluginConfiguration.Builder;
 import sune.app.mediadown.resource.Resources.StringReceiver;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Reflection2;
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadown.util.Utils.OfPath.Info;
@@ -119,7 +119,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 			
 			// If the last modified time cannot be used, use a simple counter
 			if(newPath == null) {
-				Pattern regexNameWithCounter = Pattern.compile("^" + Pattern.quote(pathInfo.fileName()) + "_(\\d+)\\.log$");
+				Regex regexNameWithCounter = Regex.of("^" + Regex.quote(pathInfo.fileName()) + "_(\\d+)\\.log$");
 				BiPredicate<Path, BasicFileAttributes> endsWithLog = ((p, a) -> p.getFileName().toString().endsWith(".log"));
 				
 				int lastCounter = Files.find(pathLogFile.getParent(), 1, endsWithLog)

@@ -11,7 +11,6 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import org.cef.CefApp;
@@ -24,6 +23,7 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.PathSystem;
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.UserAgent;
@@ -44,7 +44,7 @@ public final class WidevineCDM {
 	
 	private static final Logger logger = DRMLog.get();
 
-	private static final Pattern PATTERN_VERSION = Pattern.compile("^\\d+(?:\\.\\d+){3}$");
+	private static final Regex PATTERN_VERSION = Regex.of("^\\d+(?:\\.\\d+){3}$");
 	private static DRMContext context;
 	
 	// Forbid anyone to create an instance of this class
@@ -217,7 +217,7 @@ public final class WidevineCDM {
 	
 	public static final class WidevineCDMDownloadReader implements Consumer<String> {
 
-		private static final Pattern PATTERN = Pattern.compile("^\\[[^\\]]+\\]\\s+([^:]+):\\s+(.*)$");
+		private static final Regex PATTERN = Regex.of("^\\[[^\\]]+\\]\\s+([^:]+):\\s+(.*)$");
 		private static final String TEXT_REQUEST = "Request completed from url";
 		
 		private final DRMContext context;

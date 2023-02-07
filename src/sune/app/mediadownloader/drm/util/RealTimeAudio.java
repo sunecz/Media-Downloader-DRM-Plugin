@@ -7,10 +7,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMLog;
@@ -19,8 +19,8 @@ public final class RealTimeAudio {
 	
 	private static final Logger logger = DRMLog.get();
 	
-	private static final Pattern REGEX_TIME   = Pattern.compile("^.*?pts_time:(-?\\d+(?:\\.\\d*)?)$");
-	private static final Pattern REGEX_VOLUME = Pattern.compile("^lavfi.astats.Overall.RMS_level=(-?\\d+(?:\\.\\d*)?)$");
+	private static final Regex REGEX_TIME   = Regex.of("^.*?pts_time:(-?\\d+(?:\\.\\d*)?)$");
+	private static final Regex REGEX_VOLUME = Regex.of("^lavfi.astats.Overall.RMS_level=(-?\\d+(?:\\.\\d*)?)$");
 	
 	private final int port;
 	private Consumer<AudioVolume> listener;
