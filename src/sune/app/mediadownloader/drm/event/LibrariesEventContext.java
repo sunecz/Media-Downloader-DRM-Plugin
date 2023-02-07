@@ -1,17 +1,19 @@
 package sune.app.mediadownloader.drm.event;
 
-import sune.util.load.Libraries.Library;
+import java.util.List;
+
+import sune.app.mediadown.library.Library;
 
 public class LibrariesEventContext<C> extends EventContext<C> {
 	
-	private final Library[] libraries;
+	private final List<Library> libraries;
 	
-	public LibrariesEventContext(C context, Library[] libraries) {
+	public LibrariesEventContext(C context, List<Library> libraries) {
 		super(context);
 		this.libraries = libraries;
 	}
 	
-	public Library[] libraries() {
+	public List<Library> libraries() {
 		return libraries;
 	}
 }

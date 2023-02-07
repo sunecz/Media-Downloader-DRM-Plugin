@@ -1,6 +1,6 @@
 package sune.app.mediadownloader.drm.event;
 
-import sune.util.load.Libraries.Library;
+import sune.app.mediadown.library.Library;
 
 public class LibraryEventContext<C> extends EventContext<C> {
 	

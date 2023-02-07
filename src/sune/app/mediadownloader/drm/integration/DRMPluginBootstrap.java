@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import sune.app.mediadown.Arguments;
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.StartupWindow;
+import sune.app.mediadown.library.Library;
 import sune.app.mediadown.plugin.PluginBootstrap;
 import sune.app.mediadown.plugin.PluginBootstrapBase;
 import sune.app.mediadown.plugin.PluginConfiguration;
@@ -27,7 +28,6 @@ import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadown.util.Utils.OfPath.Info;
 import sune.app.mediadownloader.drm.DRMBootstrap;
 import sune.app.mediadownloader.drm.event.DRMBootstrapEvent;
-import sune.util.load.Libraries.Library;
 
 @PluginBootstrap(pluginClass=DRMPlugin.class)
 public final class DRMPluginBootstrap extends PluginBootstrapBase {
@@ -76,7 +76,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 			                        context.success() ? "done" : "error"));
 		});
 		bootstrap.addEventListener(DRMBootstrapEvent.LIBRARIES_ERROR, (context) -> {
-			String text = format("Cannot load libraries (%d)", context.libraries().length);
+			String text = format("Cannot load libraries (%d)", context.libraries().size());
 			StringBuilder content = new StringBuilder();
 			for(Library library : context.libraries()) {
 				content.append(format("%s (%s)\n", library.getName(), library.getPath()));
