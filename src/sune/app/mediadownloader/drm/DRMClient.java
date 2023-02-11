@@ -20,8 +20,8 @@ import org.cef.handler.CefMessageRouterHandlerAdapter;
 import org.cef.network.CefRequest.TransitionType;
 import org.slf4j.Logger;
 
+import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadown.util.JSON;
-import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.util.ssdf2.SSDCollection;
 

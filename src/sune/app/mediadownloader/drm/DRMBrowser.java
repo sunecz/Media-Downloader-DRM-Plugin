@@ -15,7 +15,7 @@ import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
-import sune.app.mediadown.util.StateMutex;
+import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadownloader.drm.util.DRMUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils.BrowserAccessor;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;

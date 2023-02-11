@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.media.Media;
@@ -12,7 +13,6 @@ import sune.app.mediadown.media.VideoMediaBase;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.Pair;
-import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadownloader.drm.DRMConfiguration;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;

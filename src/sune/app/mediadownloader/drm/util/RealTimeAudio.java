@@ -10,8 +10,8 @@ import java.util.regex.Matcher;
 
 import org.slf4j.Logger;
 
+import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.util.Regex;
-import sune.app.mediadown.util.Threads;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMLog;
 

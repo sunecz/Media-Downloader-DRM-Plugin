@@ -16,6 +16,8 @@ import java.util.stream.Stream;
 import org.cef.CefApp;
 import org.slf4j.Logger;
 
+import sune.app.mediadown.concurrent.StateMutex;
+import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.event.DownloadEvent;
@@ -25,8 +27,6 @@ import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Regex;
-import sune.app.mediadown.util.StateMutex;
-import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Web;

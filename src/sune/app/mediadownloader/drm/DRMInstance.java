@@ -14,6 +14,8 @@ import org.cef.browser.CefFrame;
 import org.slf4j.Logger;
 
 import io.netty.handler.codec.http.FullHttpRequest;
+import sune.app.mediadown.concurrent.StateMutex;
+import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventBindable;
 import sune.app.mediadown.event.EventRegistry;
@@ -25,8 +27,6 @@ import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.util.Property;
-import sune.app.mediadown.util.StateMutex;
-import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
 import sune.app.mediadownloader.drm.event.DRMInstanceEvent;

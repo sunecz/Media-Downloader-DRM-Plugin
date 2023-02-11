@@ -13,6 +13,7 @@ import java.util.function.Consumer;
 
 import sune.api.process.Processes;
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
@@ -29,7 +30,6 @@ import sune.app.mediadown.pipeline.PipelineTaskRegistry.PipelineTaskInputData;
 import sune.app.mediadown.util.MathUtils;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
-import sune.app.mediadown.util.StateMutex;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.DRM;
@@ -73,7 +73,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 		synchronized(mutex) {
 			for(Throwable ex; count >= MAX_WORKERS;) {
 				mutex.awaitAndReset();
-				if((ex = mutex.getExceptionAndReset()) != null)
+				if((ex = mutex.exceptionAndReset()) != null)
 					throw (Exception) ex;
 			}
 			++count;

@@ -16,6 +16,8 @@ import java.util.regex.Matcher;
 import org.slf4j.Logger;
 
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.concurrent.StateMutex;
+import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.pipeline.Pipeline;
@@ -23,8 +25,6 @@ import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Regex;
-import sune.app.mediadown.util.StateMutex;
-import sune.app.mediadown.util.Threads;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.DRMConstants;
 import sune.app.mediadownloader.drm.DRMContext;

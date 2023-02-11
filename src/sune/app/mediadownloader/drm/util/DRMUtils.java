@@ -15,10 +15,10 @@ import java.util.stream.Stream;
 import org.cef.browser.CefBrowser;
 import org.cef.browser.CefFrame;
 
+import sune.app.mediadown.concurrent.StateMutex;
+import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Reflection;
-import sune.app.mediadown.util.StateMutex;
-import sune.app.mediadown.util.Threads;
 import sune.util.ssdf2.SSDCollection;
 import sune.util.ssdf2.SSDNode;
 
