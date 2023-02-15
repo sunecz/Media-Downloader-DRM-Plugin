@@ -99,10 +99,6 @@
 				if(!videoPlayer.isBuffering) {
 					videoPlayer.timeUpdated = true;
 				}
-
-				if(videoPlayer.currentTime > 10 && videoPlayer.currentTime < videoPlayer.duration - 10) {
-					videoPlayer.currentTime = videoPlayer.duration - 10;
-				}
 			}, true);
 			videoPlayer.addEventListener('canplay', (e) => {
 				this.provide('canplay', this.playbackData(videoPlayer));
