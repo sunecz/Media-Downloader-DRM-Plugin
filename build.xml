@@ -1,30 +1,101 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
-<project default="create_jar" name="Create non-runnable Jar">
-	<property name="dir.rtd" value="."  />
-	<property name="dir.wrk" value=".." />
-	<property name="dir.bin" value="${dir.rtd}/bin" />
-	<property name="dir.src" value="${dir.rtd}/src" />
-	<property name="dir.lib" value="${dir.wrk}/Media-Downloader/lib" />
-	<property name="dir.prj" value="${dir.wrk}/Media-Downloader/resources/plugin" />
-	<!-- Predefined paths -->
-	<property name="dir.jar" value="${dir.rtd}/jar" />
-	<!-- Plugin variables -->
-	<property name="plugin.name" value="drm" />
-	<!-- Builds all the JARs -->
-	<target name="create_jar">
-		<antcall target="build_plugin_jar" />
+<project basedir="." default="build" name="Media-Downloader-DRM-Plugin">
+	<!-- path.javafx must be set using -Dpath.javafx=PATH -->
+	<property name="drm.plugin.name" value="drm" />
+	
+	<dirname property="drm.path.cwd" file="${ant.file.Media-Downloader-DRM-Plugin}" />
+	
+	<property name="drm.path.app" location="${drm.path.cwd}/../Media-Downloader" />
+	<include file="${drm.path.app}/build.xml" />
+	
+	<property name="drm.path.bin"   location="${drm.path.cwd}/bin"              />
+	<property name="drm.path.lib"   location="${drm.path.cwd}/lib"              />
+	<property name="drm.path.build" location="${drm.path.cwd}/build"            />
+	<property name="drm.path.src"   location="${drm.path.cwd}/src"              />
+	<property name="drm.path.plg"   location="${drm.path.app}/resources/plugin" />
+	
+	<path id="classpath.plugin.drm.libraries">
+		<fileset dir="${drm.path.lib}">
+			<include name="**/*.jar" />
+			<exclude name="cef/*" />
+		</fileset>
+	</path>
+	<path id="classpath.plugin.drm">
+		<pathelement location="${drm.path.bin}" />
+		<path refid="classpath.mediadownloader" />
+		<path refid="classpath.plugin.drm.libraries" />
+	</path>
+	
+	<path id="modulepath.plugin.drm.libraries">
+		<path refid="classpath.plugin.drm.libraries" />
+	</path>
+	<path id="modulepath.plugin.drm">
+		<pathelement location="${drm.path.bin}" />
+		<path refid="modulepath.mediadownloader" />
+		<path refid="modulepath.plugin.drm.libraries" />
+	</path>
+	
+	<target name="compile" depends="copy-resources,compile-java" />
+	<target name="build" depends="build-jar-maybe-copy,build-jar-src" />
+	
+	<target name="clean">
+		<echo message="Deleting the bin directory..." />
+		<delete dir="${drm.path.bin}" />
+		<echo message="Deleting the build directory..." />
+		<delete dir="${drm.path.build}" />
 	</target>
-	<!-- Builds the plugin JAR with compiled source and resources -->
-	<target name="build_plugin_jar">
-		<echo message="Building ${plugin.name}..." />
-		<jar destfile="${dir.jar}/${plugin.name}.jar">
+	
+	<target name="init-compile">
+		<echo message="Creating the bin directory..." />
+		<mkdir dir="${drm.path.bin}" />
+	</target>
+	
+	<target name="init-build">
+		<echo message="Creating the build directory..." />
+		<mkdir dir="${drm.path.build}" />
+	</target>
+	
+	<target name="copy-resources" depends="init-compile">
+		<echo message="Copying resources..." />
+		<copy includeemptydirs="false" todir="${drm.path.bin}">
+			<fileset dir="${drm.path.src}">
+				<exclude name="**/*.java" />
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="compile-java" depends="init-compile">
+		<echo message="Compiling Java files..." />
+		<javac debug="true" debuglevel="${debuglevel}" destdir="${drm.path.bin}" deprecation="false"
+				includeantruntime="false" source="${source}" target="${target}"
+				modulepathref="modulepath.plugin.drm">
+			<src path="${drm.path.src}" />
+			<classpath refid="classpath.plugin.drm" />
+			<compilerarg line="--add-modules ${modules}" />
+		</javac>
+	</target>
+	
+	<target name="build-jar-maybe-copy" depends="build-jar" if="should.copy-to-app">
+		<echo message="Copying to application plugins..." />
+		<copy file="${drm.path.build}/${drm.plugin.name}.jar" tofile="${drm.path.build}/${drm.plugin.name}.jar" />
+	</target>
+	
+	<target name="build-jar" depends="init-build,compile">
+		<echo message="Building plugin '${drm.plugin.name}'..." />
+		<jar destfile="${drm.path.build}/${drm.plugin.name}.jar">
 			<manifest>
 				<attribute name="Class-Path" value="." />
 			</manifest>
-			<fileset dir="${dir.bin}" />
+			<fileset dir="${drm.path.bin}" />
 		</jar>
-		<echo message="Generating source ZIP file..." />
-		<zip destfile="${dir.jar}/${plugin.name}-source.jar" basedir="${dir.src}" />
-		<copy file="${dir.jar}/${plugin.name}.jar" tofile="${dir.prj}/${plugin.name}.jar" />
+		
+		<condition property="should.copy-to-app">
+			<isset property="copyToApp" />
+		</condition>
+	</target>
+	
+	<target name="build-jar-src" depends="init-build">
+		<echo message="Building plugin '${drm.plugin.name}' source..." />
+		<zip destfile="${drm.path.build}/${drm.plugin.name}-source.jar" basedir="${drm.path.src}" />
 	</target>
 </project>

@@ -50,7 +50,7 @@ Temporary Items
 .settings/
 /bin/
 /etc/
-/jar/
+/build/
 /lib/drm/cef/
 /versions/
 
