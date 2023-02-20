@@ -33,6 +33,7 @@ import sune.app.mediadown.event.tracker.DownloadTracker;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.library.Libraries;
 import sune.app.mediadown.library.Library;
+import sune.app.mediadown.net.Net;
 import sune.app.mediadown.update.FileChecker;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
@@ -426,7 +427,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
 			});
 			
-			GetRequest request = new GetRequest(Utils.url(uri), Shared.USER_AGENT);
+			GetRequest request = new GetRequest(Net.url(uri), Shared.USER_AGENT);
 			downloader.start(request, destination, DownloadConfiguration.ofDefault());
 			
 			return destination;
@@ -461,8 +462,8 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			
 			Path localPath = PathSystem.getPath(clazz, "");
 			Updater updater = Updater.ofResources(baseURL, baseDir, DRMConstants.TIMEOUT, checker,
-				(url, file) -> download(Utils.uri(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
-				(file, webDir) -> Utils.urlConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
+				(url, file) -> download(Net.uri(url), ensurePathInDirectory(file, baseDir, true), useCompressedStreams),
+				(file, webDir) -> Net.uriConcat(webDir, ensurePathInDirectory(localPath.relativize(file), baseDir, false).toString().replace('\\', '/')),
 				(file) -> ensurePathInDirectory(file, baseDir, true),
 				(entryLoc, entryWeb) -> {
 					if(entryLoc == null) return allowNullLocalEntry;

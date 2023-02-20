@@ -2,8 +2,8 @@ package sune.app.mediadownloader.drm;
 
 import java.util.Collection;
 
+import sune.app.mediadown.net.Net;
 import sune.app.mediadown.util.ObjectHolder;
-import sune.app.mediadown.util.Utils;
 
 public final class DRMEngines {
 	
@@ -14,7 +14,7 @@ public final class DRMEngines {
 	public static final Collection<DRMEngine> all() { return holder.all(); }
 	
 	public static final DRMEngine fromURL(String url) {
-		return Utils.isValidURL(url)
+		return Net.isValidURI(url)
 					? holder.stream()
 						.filter((o) -> o.isCompatibleURL(url))
 						.findFirst().orElse(null)

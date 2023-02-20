@@ -23,6 +23,7 @@ import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.language.Translation;
 import sune.app.mediadown.media.Media;
+import sune.app.mediadown.net.Net;
 import sune.app.mediadown.pipeline.DownloadPipelineResult;
 import sune.app.mediadown.pipeline.Pipeline;
 import sune.app.mediadown.pipeline.PipelineTask;
@@ -30,7 +31,6 @@ import sune.app.mediadown.pipeline.PipelineTaskRegistry.PipelineTaskInputData;
 import sune.app.mediadown.util.MathUtils;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Pair;
-import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.DRM;
 import sune.app.mediadownloader.drm.DRMBootstrap;
@@ -265,7 +265,7 @@ public class ProtectedMediaPipelineTask implements PipelineTask<DownloadPipeline
 			lock(); // Wait for available worker space, if needed
 			// Get the original video URL that was used for the media and check it
 			String url = Optional.ofNullable(media.metadata().sourceURI()).map(URI::toString).orElse(null);
-			if(url == null || !Utils.isValidURL(url))
+			if(url == null || !Net.isValidURI(url))
 				throw new IllegalArgumentException("Invalid url");
 			// Obtain the DRM engine to be used for the URL
 			DRMEngine engine = DRMEngines.fromURL(url);

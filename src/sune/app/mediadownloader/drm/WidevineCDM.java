@@ -21,6 +21,7 @@ import sune.app.mediadown.concurrent.Threads;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.event.DownloadEvent;
+import sune.app.mediadown.net.Net;
 import sune.app.mediadown.util.JSON;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
@@ -163,7 +164,7 @@ public final class WidevineCDM {
 		public static final SSDCollection send(String url) throws Exception {
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.BEGIN_REQUEST);
-			StringResponse response = Web.request(new PostRequest(Utils.url(url), UserAgent.CHROME, null).toBodyRequest(content()));
+			StringResponse response = Web.request(new PostRequest(Net.url(url), UserAgent.CHROME, null).toBodyRequest(content()));
 			String content = response.content;
 			int index = content.indexOf('{');
 			if(index >= 0) content = content.substring(index);
@@ -198,7 +199,7 @@ public final class WidevineCDM {
 			});
 			
 			Path output = PathSystem.getPath(WidevineCDM.class, "widevine.crx");
-			Request request = new GetRequest(Utils.url(packageURL), UserAgent.CHROME);
+			Request request = new GetRequest(Net.url(packageURL), UserAgent.CHROME);
 			downloader.start(request, output, DownloadConfiguration.ofDefault());
 			
 			return output;
