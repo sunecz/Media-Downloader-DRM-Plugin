@@ -17,7 +17,6 @@ import java.util.stream.Collectors;
 
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.MediaDownloader.Versions.VersionEntryAccessor;
-import sune.app.mediadown.Shared;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.download.InputStreamChannelFactory;
@@ -34,6 +33,7 @@ import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.library.Libraries;
 import sune.app.mediadown.library.Library;
 import sune.app.mediadown.net.Net;
+import sune.app.mediadown.net.Web.Request;
 import sune.app.mediadown.update.FileChecker;
 import sune.app.mediadown.update.Requirements;
 import sune.app.mediadown.update.Updater;
@@ -42,7 +42,6 @@ import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Utils;
-import sune.app.mediadown.util.Web.GetRequest;
 import sune.app.mediadownloader.drm.event.CheckEventContext;
 import sune.app.mediadownloader.drm.event.DRMBootstrapEvent;
 import sune.app.mediadownloader.drm.event.DownloadEventContext;
@@ -427,7 +426,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
 			});
 			
-			GetRequest request = new GetRequest(Net.url(uri), Shared.USER_AGENT);
+			Request request = Request.of(uri).GET();
 			downloader.start(request, destination, DownloadConfiguration.ofDefault());
 			
 			return destination;

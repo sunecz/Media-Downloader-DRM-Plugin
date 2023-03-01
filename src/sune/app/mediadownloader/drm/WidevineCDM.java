@@ -22,6 +22,9 @@ import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
 import sune.app.mediadown.event.DownloadEvent;
 import sune.app.mediadown.net.Net;
+import sune.app.mediadown.net.Web;
+import sune.app.mediadown.net.Web.Request;
+import sune.app.mediadown.net.Web.Response;
 import sune.app.mediadown.util.JSON;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
@@ -30,11 +33,6 @@ import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
-import sune.app.mediadown.util.Web;
-import sune.app.mediadown.util.Web.GetRequest;
-import sune.app.mediadown.util.Web.PostRequest;
-import sune.app.mediadown.util.Web.Request;
-import sune.app.mediadown.util.Web.StringResponse;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.CEFLog;
@@ -164,8 +162,8 @@ public final class WidevineCDM {
 		public static final SSDCollection send(String url) throws Exception {
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.BEGIN_REQUEST);
-			StringResponse response = Web.request(new PostRequest(Net.url(url), UserAgent.CHROME, null).toBodyRequest(content()));
-			String content = response.content;
+			Response.OfString response = Web.request(Request.of(Net.uri(url)).userAgent(UserAgent.CHROME).POST(content()));
+			String content = response.body();
 			int index = content.indexOf('{');
 			if(index >= 0) content = content.substring(index);
 			SSDCollection json = JSON.read(content);
@@ -199,7 +197,7 @@ public final class WidevineCDM {
 			});
 			
 			Path output = PathSystem.getPath(WidevineCDM.class, "widevine.crx");
-			Request request = new GetRequest(Net.url(packageURL), UserAgent.CHROME);
+			Request request = Request.of(Net.uri(packageURL)).userAgent(UserAgent.CHROME).GET();
 			downloader.start(request, output, DownloadConfiguration.ofDefault());
 			
 			return output;
