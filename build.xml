@@ -77,7 +77,7 @@
 	
 	<target name="build-jar-maybe-copy" depends="build-jar" if="should.copy-to-app">
 		<echo message="Copying to application plugins..." />
-		<copy file="${drm.path.build}/${drm.plugin.name}.jar" tofile="${drm.path.build}/${drm.plugin.name}.jar" />
+		<copy file="${drm.path.build}/${drm.plugin.name}.jar" tofile="${drm.path.plg}/${drm.plugin.name}.jar" />
 	</target>
 	
 	<target name="build-jar" depends="init-build,compile">
