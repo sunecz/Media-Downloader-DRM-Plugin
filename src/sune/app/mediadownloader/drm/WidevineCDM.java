@@ -162,7 +162,10 @@ public final class WidevineCDM {
 		public static final SSDCollection send(String url) throws Exception {
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.BEGIN_REQUEST);
-			Response.OfString response = Web.request(Request.of(Net.uri(url)).userAgent(UserAgent.CHROME).POST(content()));
+			String contentType = "application/json";
+			Response.OfString response = Web.request(
+				Request.of(Net.uri(url)).userAgent(UserAgent.CHROME).POST(content(), contentType)
+			);
 			String content = response.body();
 			int index = content.indexOf('{');
 			if(index >= 0) content = content.substring(index);
