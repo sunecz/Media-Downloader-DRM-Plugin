@@ -1,6 +1,6 @@
 package sune.app.mediadownloader.drm.util;
 
-import sune.util.ssdf2.SSDCollection;
+import sune.app.mediadown.util.JSON.JSONCollection;
 
 public final class PlaybackData {
 	
@@ -16,8 +16,7 @@ public final class PlaybackData {
 		this.now = now;
 	}
 	
-	public PlaybackData(SSDCollection json) {
-		this(json.getDirectDouble("time"), json.getDirectInt("frame"), json.getDirectDouble("buffered"),
-		     json.getDirectLong("now"));
+	public PlaybackData(JSONCollection json) {
+		this(json.getDouble("time"), json.getInt("frame"), json.getDouble("buffered"), json.getLong("now"));
 	}
 }

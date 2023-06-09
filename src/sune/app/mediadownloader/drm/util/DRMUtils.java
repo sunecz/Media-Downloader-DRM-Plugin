@@ -17,10 +17,10 @@ import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadown.concurrent.Threads;
+import sune.app.mediadown.util.JSON.JSONCollection;
+import sune.app.mediadown.util.JSON.JSONNode;
 import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Reflection;
-import sune.util.ssdf2.SSDCollection;
-import sune.util.ssdf2.SSDNode;
 
 public final class DRMUtils {
 	
@@ -86,11 +86,11 @@ public final class DRMUtils {
 			this.height = height;
 		}
 		
-		public BBox(SSDCollection bbox) {
-			this.x = (int) bbox.getDirectDouble("x");
-			this.y = (int) bbox.getDirectDouble("y");
-			this.width = (int) bbox.getDirectDouble("width");
-			this.height = (int) bbox.getDirectDouble("height");
+		public BBox(JSONCollection bbox) {
+			this.x = (int) bbox.getDouble("x");
+			this.y = (int) bbox.getDouble("y");
+			this.width = (int) bbox.getDouble("width");
+			this.height = (int) bbox.getDouble("height");
 		}
 		
 		public Point2D center() {
@@ -167,31 +167,31 @@ public final class DRMUtils {
 		private final Object mtx = new Object();
 		private String requestName;
 		private String jsCode;
-		private SSDNode[] results;
+		private JSONNode[] results;
 		private int resultIndex;
-		private Consumer<SSDNode>[] callbacks;
+		private Consumer<JSONNode>[] callbacks;
 		
 		private Thread thread;
 		private final StateMutex mtxDone = new StateMutex();
 		private volatile boolean waiting;
 		
 		@SafeVarargs
-		public JSRequest(String requestName, String jsCode, Consumer<SSDNode>... callbacks) {
+		public JSRequest(String requestName, String jsCode, Consumer<JSONNode>... callbacks) {
 			this.requestName = Objects.requireNonNull(requestName);
 			this.jsCode = jsCode;
 			@SuppressWarnings("unchecked")
-			Consumer<SSDNode>[] _callbacks = Stream.of(callbacks).filter(Objects::nonNull).toArray(Consumer[]::new);
-			this.results = new SSDNode[_callbacks.length];
+			Consumer<JSONNode>[] _callbacks = Stream.of(callbacks).filter(Objects::nonNull).toArray(Consumer[]::new);
+			this.results = new JSONNode[_callbacks.length];
 			this.callbacks = _callbacks;
 		}
 		
 		@SafeVarargs
-		public static final JSRequest ofNoop(String requestName, Consumer<SSDNode>... callbacks) {
+		public static final JSRequest ofNoop(String requestName, Consumer<JSONNode>... callbacks) {
 			return new JSRequest(requestName, null, callbacks);
 		}
 		
 		@SafeVarargs
-		public static final JSRequest of(String requestName, String jsCode, Consumer<SSDNode>... callbacks) {
+		public static final JSRequest of(String requestName, String jsCode, Consumer<JSONNode>... callbacks) {
 			return new JSRequest(requestName, Objects.requireNonNull(jsCode), callbacks);
 		}
 		
@@ -227,7 +227,7 @@ public final class DRMUtils {
 			callbacks[index].accept(results[index]);
 		}
 		
-		public void resolve(int index, SSDNode result) {
+		public void resolve(int index, JSONNode result) {
 			synchronized(mtx) {
 				this.results[index] = result;
 				this.resultIndex = index;
@@ -247,7 +247,7 @@ public final class DRMUtils {
 			return requestName;
 		}
 		
-		public SSDNode[] results() {
+		public JSONNode[] results() {
 			return results;
 		}
 	}

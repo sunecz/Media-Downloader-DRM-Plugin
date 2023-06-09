@@ -26,6 +26,7 @@ import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.Media;
 import sune.app.mediadown.pipeline.Pipeline;
+import sune.app.mediadown.util.JSON.JSONCollection;
 import sune.app.mediadown.util.Property;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.WidevineCDM.WidevineCDMDownloadReader;
@@ -42,7 +43,6 @@ import sune.app.mediadownloader.drm.util.PlaybackData;
 import sune.app.mediadownloader.drm.util.PlaybackEventsHandler;
 import sune.app.mediadownloader.drm.util.ProcessManager;
 import sune.app.mediadownloader.drm.util.VirtualAudio;
-import sune.util.ssdf2.SSDCollection;
 
 public final class DRMInstance implements EventBindable<EventType> {
 	
@@ -606,7 +606,7 @@ public final class DRMInstance implements EventBindable<EventType> {
 		
 		@Override public void onLoadStart(DRMBrowser browser, CefFrame frame) {}
 		@Override public void onLoadEnd(DRMBrowser browser, CefFrame frame, int httpStatusCode) {}
-		@Override public void onRequest(DRMBrowser browser, CefFrame frame, String requestName, SSDCollection json,
+		@Override public void onRequest(DRMBrowser browser, CefFrame frame, String requestName, JSONCollection json,
 				String request) {}
 		@Override public boolean shouldModifyResponse(String uri, String mimeType, Charset charset,
 				FullHttpRequest request) { return false; }

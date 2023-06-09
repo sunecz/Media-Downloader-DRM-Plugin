@@ -22,8 +22,8 @@ import org.slf4j.Logger;
 
 import sune.app.mediadown.concurrent.StateMutex;
 import sune.app.mediadown.util.JSON;
+import sune.app.mediadown.util.JSON.JSONCollection;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
-import sune.util.ssdf2.SSDCollection;
 
 public final class DRMClient {
 	
@@ -103,11 +103,11 @@ public final class DRMClient {
 			index = Integer.valueOf(requestNameData.substring(delim + 1, requestNameData.length() - 1));
 		}
 		String value = request.substring(requestNameData.length());
-		SSDCollection json = JSON.read(value);
+		JSONCollection json = JSON.read(value);
 		boolean handled = false;
 		JSRequest result = jsResults.get(requestName);
 		if(result != null) {
-			result.resolve(index, json.getDirect("data"));
+			result.resolve(index, json.get("data"));
 			handled = true;
 		}
 		requestName = requestName.substring(0, requestName.length() - 1);

@@ -8,12 +8,12 @@ import javax.swing.SwingUtilities;
 import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.media.Media;
+import sune.app.mediadown.util.JSON.JSONCollection;
 import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.DRMContext;
 import sune.app.mediadownloader.drm.DRMResolver;
 import sune.app.mediadownloader.drm.util.JS;
 import sune.app.mediadownloader.drm.util.PlaybackData;
-import sune.util.ssdf2.SSDCollection;
 
 public abstract class SimpleDRMResolver implements DRMResolver {
 	
@@ -54,7 +54,7 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 	 * </pre>
 	 */
 	@Override
-	public void onRequest(DRMBrowser browser, CefFrame frame, String requestName, SSDCollection json, String request) {
+	public void onRequest(DRMBrowser browser, CefFrame frame, String requestName, JSONCollection json, String request) {
 		switch(requestName) {
 			case "update":
 				context.syncTime(new PlaybackData(json));
@@ -78,14 +78,14 @@ public abstract class SimpleDRMResolver implements DRMResolver {
 				context.playbackPause(new PlaybackData(json));
 				break;
 			case "metadata":
-				videoWidth = (int) json.getDirectDouble("width");
-				videoHeight = (int) json.getDirectDouble("height");
-				duration = json.getDirectDouble("duration");
-				vid = Integer.valueOf(json.getDirectInt("id"));
+				videoWidth = (int) json.getDouble("width");
+				videoHeight = (int) json.getDouble("height");
+				duration = json.getDouble("duration");
+				vid = Integer.valueOf(json.getInt("id"));
 				JS.Helper.click(browser, frame, "#sune-button-" + vid);
 				break;
 			case "fullscreen":
-				boolean isFullscreen = json.getDirectBoolean("value");
+				boolean isFullscreen = json.getBoolean("value");
 				if(!context.hasRecordStarted() && isFullscreen && videoWidth >= 0 && videoHeight >= 0) {
 					long frameID = frame.getIdentifier();
 					SwingUtilities.invokeLater(() -> {

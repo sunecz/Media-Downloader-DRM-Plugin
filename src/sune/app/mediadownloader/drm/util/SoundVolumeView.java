@@ -12,12 +12,12 @@ import java.util.Set;
 import sune.api.process.Processes;
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.util.JSON;
+import sune.app.mediadown.util.JSON.JSONCollection;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice;
 import sune.app.mediadownloader.drm.util.AudioDevices.AudioDevice.Direction;
-import sune.util.ssdf2.SSDCollection;
 
 // Sound Volume View (https://www.nirsoft.net/utils/sound_volume_view.html)
 public final class SoundVolumeView {
@@ -64,16 +64,16 @@ public final class SoundVolumeView {
 			));
 			
 			try(InputStream stream = Files.newInputStream(output, StandardOpenOption.READ)) {
-				SSDCollection json = JSON.read(stream);
+				JSONCollection json = JSON.read(stream);
 				
-				for(SSDCollection item : json.collectionsIterable()) {
-					String itemType = item.getDirectString("Type", "");
+				for(JSONCollection item : json.collectionsIterable()) {
+					String itemType = item.getString("Type", "");
 					
 					if(!itemType.equals("Application")) {
 						continue;
 					}
 					
-					String itemPID = item.getDirectString("Process ID", "");
+					String itemPID = item.getString("Process ID", "");
 					
 					if(!itemPID.isEmpty()) {
 						pids.add(Long.valueOf(itemPID));
@@ -97,19 +97,19 @@ public final class SoundVolumeView {
 			));
 			
 			try(InputStream stream = Files.newInputStream(output, StandardOpenOption.READ)) {
-				SSDCollection json = JSON.read(stream);
+				JSONCollection json = JSON.read(stream);
 				
-				for(SSDCollection item : json.collectionsIterable()) {
-					String itemType = item.getDirectString("Type");
+				for(JSONCollection item : json.collectionsIterable()) {
+					String itemType = item.getString("Type");
 					
 					if(!itemType.equals("Device")) {
 						continue;
 					}
 					
-					String itemName = item.getDirectString("Name", "UNSET");
-					String itemDeviceName = item.getDirectString("Device Name", "UNSET");
-					String itemDirection = item.getDirectString("Direction", "UNSET");
-					String itemFriendlyName = item.getDirectString("Command-Line Friendly ID", "UNSET");
+					String itemName = item.getString("Name", "UNSET");
+					String itemDeviceName = item.getString("Device Name", "UNSET");
+					String itemDirection = item.getString("Direction", "UNSET");
+					String itemFriendlyName = item.getString("Command-Line Friendly ID", "UNSET");
 					
 					String deviceName = String.format("%s (%s)", itemName, itemDeviceName);
 					String deviceAlternativeName = itemFriendlyName;
@@ -137,19 +137,19 @@ public final class SoundVolumeView {
 			));
 			
 			try(InputStream stream = Files.newInputStream(output, StandardOpenOption.READ)) {
-				SSDCollection json = JSON.read(stream);
+				JSONCollection json = JSON.read(stream);
 				
-				for(SSDCollection item : json.collectionsIterable()) {
-					String itemType = item.getDirectString("Type");
+				for(JSONCollection item : json.collectionsIterable()) {
+					String itemType = item.getString("Type");
 					
 					if(!itemType.equals("Device")) {
 						continue;
 					}
 					
-					String itemName = item.getDirectString("Name", "UNSET");
-					String itemDeviceName = item.getDirectString("Device Name", "UNSET");
-					String itemDefault = item.getDirectString("Default", "UNSET");
-					String itemFriendlyName = item.getDirectString("Command-Line Friendly ID", "UNSET");
+					String itemName = item.getString("Name", "UNSET");
+					String itemDeviceName = item.getString("Device Name", "UNSET");
+					String itemDefault = item.getString("Default", "UNSET");
+					String itemFriendlyName = item.getString("Command-Line Friendly ID", "UNSET");
 					
 					String deviceName = String.format("%s (%s)", itemName, itemDeviceName);
 					String deviceAlternativeName = itemFriendlyName;

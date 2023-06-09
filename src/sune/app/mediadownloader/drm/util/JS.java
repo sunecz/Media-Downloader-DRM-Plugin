@@ -10,14 +10,14 @@ import java.util.function.Consumer;
 import org.cef.browser.CefFrame;
 
 import sune.app.mediadown.Shared;
+import sune.app.mediadown.util.JSON.JSONCollection;
+import sune.app.mediadown.util.JSON.JSONNode;
 import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.DRMBrowser;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.DRMUtils.BBox;
 import sune.app.mediadownloader.drm.util.DRMUtils.JSRequest;
 import sune.app.mediadownloader.drm.util.DRMUtils.Promise;
-import sune.util.ssdf2.SSDCollection;
-import sune.util.ssdf2.SSDNode;
 
 public final class JS {
 	
@@ -88,7 +88,7 @@ public final class JS {
 				escapeQS(selector)
 			);
 			browser.addJSRequest(frame, new JSRequest(Request.requestId("click"), code, (result) -> {
-				browser.accessor().click((new BBox((SSDCollection) result)).center());
+				browser.accessor().click((new BBox((JSONCollection) result)).center());
 			}));
 		}
 		
@@ -120,12 +120,12 @@ public final class JS {
 		}
 		
 		@SafeVarargs
-		public static final JSRequest ofNoop(String prefix, Consumer<SSDNode>... callbacks) {
+		public static final JSRequest ofNoop(String prefix, Consumer<JSONNode>... callbacks) {
 			return JSRequest.ofNoop(requestId(prefix), callbacks);
 		}
 		
 		@SafeVarargs
-		public static final JSRequest of(String prefix, String jsCode, Consumer<SSDNode>... callbacks) {
+		public static final JSRequest of(String prefix, String jsCode, Consumer<JSONNode>... callbacks) {
 			return JSRequest.of(requestId(prefix), jsCode, callbacks);
 		}
 	}
@@ -187,7 +187,7 @@ public final class JS {
 			Promise.OfRef<Boolean> promise = new Promise.OfRef<>();
 			String code = DRMUtils.format("MediaDownloader.DRM.Playback.isPlaying('%1$s', ret);", videoId);
 			browser.addJSRequest(frame, JS.Request.of("playback-isPlaying", code, (data) -> {
-				boolean isPlaying = ((SSDCollection) data).getDirectBoolean("is_playing", false);
+				boolean isPlaying = ((JSONCollection) data).getBoolean("is_playing", false);
 				promise.resolve(isPlaying);
 			}));
 			return promise;

@@ -26,6 +26,7 @@ import sune.app.mediadown.net.Web;
 import sune.app.mediadown.net.Web.Request;
 import sune.app.mediadown.net.Web.Response;
 import sune.app.mediadown.util.JSON;
+import sune.app.mediadown.util.JSON.JSONCollection;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.Pair;
@@ -33,12 +34,11 @@ import sune.app.mediadown.util.PathSystem;
 import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.UserAgent;
 import sune.app.mediadown.util.Utils;
+import sune.app.mediadown.util.Utils.Ignore;
 import sune.app.mediadownloader.drm.event.WidevineCDMEvent;
 import sune.app.mediadownloader.drm.integration.IntegrationUtils;
 import sune.app.mediadownloader.drm.util.CEFLog;
 import sune.app.mediadownloader.drm.util.CRXExtractor;
-import sune.util.ssdf2.SSDCollection;
-import sune.util.ssdf2.SSDF;
 
 public final class WidevineCDM {
 	
@@ -60,8 +60,8 @@ public final class WidevineCDM {
 		if(logger.isDebugEnabled())
 			logger.debug("Sending Widevine CDM request...");
 		context = drmContext;
-		SSDCollection json = WidevineCDMDownloadRequest.send(requestURL);
-		SSDCollection app = json.getCollection("response.app.0");
+		JSONCollection json = WidevineCDMDownloadRequest.send(requestURL);
+		JSONCollection app = json.getCollection("response.app.0");
 		String baseURL = app.getString("updatecheck.urls.url.0.codebase");
 		String packageName = app.getString("updatecheck.manifest.packages.package.0.name");
 		String packageVersion = app.getString("updatecheck.manifest.version");
@@ -114,11 +114,11 @@ public final class WidevineCDM {
 				.map((ver) -> {
 					Path pathManifest = ver.resolve("manifest.json");
 					if(!NIO.exists(pathManifest)) return null;
-					SSDCollection data = SSDF.readJSON(pathManifest.toFile());
-					return Utils.stream(data.getDirectCollection("platforms").collectionsIterable())
-							    .filter((coll) -> coll.getDirectString("os")  .equalsIgnoreCase("win")
-							                   && coll.getDirectString("arch").equalsIgnoreCase("x64"))
-							    .map((coll) -> ver.resolve(coll.getDirectString("sub_package_path")))
+					JSONCollection data = Ignore.call(() -> JSON.read(pathManifest));
+					return Utils.stream(data.getCollection("platforms").collectionsIterable())
+							    .filter((coll) -> coll.getString("os")  .equalsIgnoreCase("win")
+							                   && coll.getString("arch").equalsIgnoreCase("x64"))
+							    .map((coll) -> ver.resolve(coll.getString("sub_package_path")))
 							    .findFirst().orElse(null);
 				})
 				.filter(Objects::nonNull)
@@ -159,7 +159,7 @@ public final class WidevineCDM {
 			}
 		}
 		
-		public static final SSDCollection send(String url) throws Exception {
+		public static final JSONCollection send(String url) throws Exception {
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.BEGIN_REQUEST);
 			String contentType = "application/json";
@@ -169,7 +169,7 @@ public final class WidevineCDM {
 			String content = response.body();
 			int index = content.indexOf('{');
 			if(index >= 0) content = content.substring(index);
-			SSDCollection json = JSON.read(content);
+			JSONCollection json = JSON.read(content);
 			if(context != null)
 				context.eventRegistry().call(WidevineCDMEvent.END_REQUEST);
 			return json;
