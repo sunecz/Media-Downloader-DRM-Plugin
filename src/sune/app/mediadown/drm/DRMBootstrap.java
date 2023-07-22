@@ -105,7 +105,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		
 		boolean checkHashes = checkIntegrity;
 		fileChecker.generate((file) -> true, false, (path) -> checkHashes);
-		checker.check(baseURL, currentDir, fileChecker, checkHashes, true, false);
+		checker.check(baseURL, currentDir, fileChecker, checkHashes, true, true);
 		version.set(verRemote);
 	}
 	
@@ -136,9 +136,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		if(MediaDownloader.AppArguments.isUpdateEnabled()) {
 			ResourceChecker checker = new ResourceChecker();
 			boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
-			
-			// TODO: Uncomment
-			//checkRes(checker, currentDir, checkIntegrity);
+			checkRes(checker, currentDir, checkIntegrity);
 		}
 	}
 	
