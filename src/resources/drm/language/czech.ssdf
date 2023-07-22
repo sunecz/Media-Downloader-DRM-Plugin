@@ -2,107 +2,11 @@
 	plugin: {
 		drm: {
 			title: "DRM Plugin",
-			configuration: {
-				group: {
-					general: "DRM"
-				},
-				fields: {
-					debug:   "Debug mód",
-					quality: "Kvalita",
-					audio: {
-						captureDeviceName:  "Nahrávací audio zařízení",
-						renderDeviceName:   "Přehrávací audio zařízení",
-						allowVirtualDevice: "Povolit vestavěné virtuální audio zařízení"
-					},
-					record: {
-						useDisplayRefreshRate: "Použít obnovovací frekvenci displeje, je-li známá",
-						defaultFrameRate:      "Výchozí FPS nahrávání"
-					},
-					output: {
-						useMediaFrameRate: "Použít FPS mediálního zdroje, je-li k dispozici",
-						defaultFrameRate:  "Výchozí FPS výstupu"
-					},
-					process: {
-						keepRecordFile: "Zachovat soubor záznamu"
-					}
-				},
-				values: {
-					quality: {
-						LOSSLESS: "Bezztrátová",
-						HIGH:     "Vysoká",
-						MEDIUM:   "Střední",
-						LOW:      "Nízká"
-					},
-					audio: {
-						device_auto: "Automaticky",
-						progress: {
-							devices_capture: "Získávání nahrávacích audio zařízení...",
-							devices_render:  "Získávání přehrávacích audio zařízení..."
-						}
-					}
-				}
-			},
-			drm_instance: {
-				begin: "Spouštění DRM instance...",
-				end:   "DRM instance skončila",
-				error: "Došlo k chybě v DRM instanci"
-			},
-			widevine: {
-				begin:            "Spouštění procesu stažení Widevine CDM...",
-				wait_cef_request: "Čekání na požadavek pro stažení Widevine CDM od CEF (až 10 sekund)...",
-				end:              "Proces stažení Widevine CDM dokončen",
-				error:            "Proces stažení Widevine CDM vyhodil chybu",
-				begin_request:    "Posílání požadavku pro stažení Widevine CDM...",
-				end_request:      "Posílání požadavku pro stažení Widevine CDM... hotovo",
-				begin_download:   "Stahování .crx souboru Widevine CDM...",
-				update_download:  "Stahování .crx souboru Widevine CDM... %{percent}%%",
-				end_download:     "Stahování .crx souboru Widevine CDM... hotovo",
-				begin_extract:    "Extrakce staženého .crx souboru Widevine CDM...",
-				end_extract:      "Extrakce staženého .crx souboru Widevine CDM... hotovo"
-			},
-			phase: {
-				analyze: {
-					begin: "Spouštění analyzování...",
-					end:   "Analyzování dokončeno",
-					error: "Při analyzování došlo k chybě"
-				},
-				record: {
-					begin: "Spouštění nahrávání...",
-					end:   "Nahrávání dokončeno",
-					error: "Při nahrávání došlo k chybě"
-				},
-				post_process: {
-					begin: "Spouštění zpracování...",
-					end:   "Zpracování dokončeno",
-					error: "Při zpracování došlo k chybě",
-					enum: {
-						MEAN_VOLUME:    "Získávání průměru hlasitosti",
-						VOLUME_ENTRIES: "Získávání záznamů hlasitosti",
-						SILENCE_RANGES: "Získávání rozsahů ticha",
-						CUTS_GENERATE:  "Generování střihů",
-						FIX_VIDEO:      "Opravování videa",
-						TRIM_VIDEO:     "Stříhání videa",
-						FIX_AUDIO:      "Opravování audia",
-						TRIM_AUDIO:     "Stříhání audia",
-						MERGE:          "Sloučení videa a audia"
-					}
-				}
-			},
 			states: {
-				instance:     "Proces DRM",
-				widevine:     "Widevine",
-				analyze:      "Analýza",
-				record:       "Nahrávání",
-				post_process: "Zpracování"
-			},
-			error: {
-				virtual_device: {
-					register: {
-						title: "Vestavěné virtuální audio zařízení",
-						text:  "Registrace vestavěného virtuálního audio zařízení selhala. "
-						     + "Prosím, spusťte program jako administrátor."
-					}
-				}
+				extract_pssh:  "Extrakce PSSH",
+				obtain_keys:   "Získání klíčů",
+				decrypt_video: "Dešifrování videa",
+				decrypt_audio: "Dešifrování audia"
 			}
 		}
 	}
