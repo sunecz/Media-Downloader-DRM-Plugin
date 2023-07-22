@@ -9,16 +9,11 @@
 	<include file="${drm.path.app}/build.xml" />
 	
 	<property name="drm.path.bin"   location="${drm.path.cwd}/bin"              />
-	<property name="drm.path.lib"   location="${drm.path.cwd}/lib"              />
 	<property name="drm.path.build" location="${drm.path.cwd}/build"            />
 	<property name="drm.path.src"   location="${drm.path.cwd}/src"              />
 	<property name="drm.path.plg"   location="${drm.path.app}/resources/plugin" />
 	
 	<path id="classpath.plugin.drm.libraries">
-		<fileset dir="${drm.path.lib}">
-			<include name="**/*.jar" />
-			<exclude name="cef/*" />
-		</fileset>
 	</path>
 	<path id="classpath.plugin.drm">
 		<pathelement location="${drm.path.bin}" />
