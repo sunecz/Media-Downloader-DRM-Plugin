@@ -7,6 +7,7 @@ import java.util.Objects;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.InternalState;
+import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.TaskStates;
 import sune.app.mediadown.concurrent.SyncObject;
 import sune.app.mediadown.conversion.ConversionCommand;
@@ -249,45 +250,45 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		
 		eventRegistry.call(DownloadEvent.BEGIN, downloader);
 		
-		List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
-		List<Path> tempFiles = delegator.temporaryFiles(mediaSingles.size());
-		
-		List<FileSegment> segmentsVideo = null;
-		List<FileSegment> segmentsAudio = null;
-		Path pathVideo = null;
-		Path pathAudio = null;
-		
-		for(int i = 0, l = mediaSingles.size(); i < l; ++i) {
-			Path tempFile = tempFiles.get(i);
-			Media media = mediaSingles.get(i);
-			MediaType type = media.type();
-			
-			if(type.is(MediaType.VIDEO)) {
-				pathVideo = tempFile;
-				segmentsVideo = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
-			} else if(type.is(MediaType.AUDIO)) {
-				pathAudio = tempFile;
-				segmentsAudio = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
-			}
-		}
-		
-		if(pathVideo == null || pathAudio == null) {
-			throw new IllegalStateException("Both video and audio must be available");
-		}
-		
-		if(segmentsVideo == null || segmentsAudio == null) {
-			throw new IllegalStateException("Only segmentable video and audio supported");
-		}
-		
-		DRMEngine engine = DRMEngines.fromURI(media.metadata().sourceURI());
-		
-		if(engine == null) {
-			throw new IllegalStateException("DRM engine not found");
-		}
-		
-		if(!checkState()) return;
-		
 		try {
+			List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
+			List<Path> tempFiles = delegator.temporaryFiles(mediaSingles.size());
+			
+			List<FileSegment> segmentsVideo = null;
+			List<FileSegment> segmentsAudio = null;
+			Path pathVideo = null;
+			Path pathAudio = null;
+			
+			for(int i = 0, l = mediaSingles.size(); i < l; ++i) {
+				Path tempFile = tempFiles.get(i);
+				Media media = mediaSingles.get(i);
+				MediaType type = media.type();
+				
+				if(type.is(MediaType.VIDEO)) {
+					pathVideo = tempFile;
+					segmentsVideo = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
+				} else if(type.is(MediaType.AUDIO)) {
+					pathAudio = tempFile;
+					segmentsAudio = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
+				}
+			}
+			
+			if(pathVideo == null || pathAudio == null) {
+				throw new IllegalStateException("Both video and audio must be available");
+			}
+			
+			if(segmentsVideo == null || segmentsAudio == null) {
+				throw new IllegalStateException("Only segmentable video and audio supported");
+			}
+			
+			DRMEngine engine = DRMEngines.fromURI(media.metadata().sourceURI());
+			
+			if(engine == null) {
+				throw new IllegalStateException("DRM engine not found");
+			}
+			
+			if(!checkState()) return;
+			
 			DecryptionProcessTracker decryptTracker = new DecryptionProcessTracker();
 			manager.tracker(decryptTracker);
 			
@@ -367,6 +368,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			state.set(TaskStates.DONE);
 		} catch(Exception ex) {
 			eventRegistry.call(DownloadEvent.ERROR, new Pair<>(downloader, ex));
+			
+			// Temporarily also show the Media Downloader error window
+			MediaDownloader.error(ex);
+			
 			throw ex; // Forward the exception
 		} finally {
 			stop();
