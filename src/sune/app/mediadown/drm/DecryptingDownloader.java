@@ -184,14 +184,9 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	
 	private final MediaDecryptionKey correctDecryptionKey(FileDownloader downloader, Path input,
 			List<FileSegment> segments, List<MediaDecryptionKey> keys) throws Exception {
-		if(keys.isEmpty()) {
+		if(keys == null || keys.isEmpty()) {
 			// Null indicates failure
 			return null;
-		}
-		
-		if(keys.size() == 1) {
-			// Only one key, nothing to try, just return it
-			return keys.get(0);
 		}
 		
 		int numOfSegments = 2; // Must be at least 2 (init + 1 content segment)
