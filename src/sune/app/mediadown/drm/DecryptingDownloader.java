@@ -156,6 +156,11 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		
 		try {
 			for(MediaDecryptionKey key : keys) {
+				// Use FFmpeg decryption_key flag to check whether a initial segment and the next
+				// segment together can be decrypted using the specific key. If it fails the key
+				// is not the correct one and the FFmpeg will return a non-zero exit code, otherwise
+				// the key is correct and we can return it. Note that this method returns just one
+				// key, so media with multiple decryption keys are not supported.
 				try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess((l) -> {})) {
 					ConversionCommand command = builder
 						.addOptions(Option.ofShort("decryption_key", key.key()))
@@ -188,27 +193,36 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			return keys.get(0);
 		}
 		
-		int numOfSegments = 2; // Must be at least 2
+		int numOfSegments = 2; // Must be at least 2 (init + 1 content segment)
 		Path tempOutput = null;
 		
 		try {
 			tempOutput = downloadTestSegments(downloader, input, segments, numOfSegments);
 			return filterDecryptionKey(tempOutput, keys);
 		} finally {
-			NIO.delete(tempOutput);
+			if(tempOutput != null) {
+				NIO.delete(tempOutput);
+			}
 		}
 	}
 	
-	private final int decrypt(Path input, MediaDecryptionKey key) throws Exception {
+	private final void decrypt(Path input, MediaDecryptionKey key) throws Exception {
 		// Since mp4decrypt has some problems with non-ascii characters in file names,
 		// move files so that we work with only ascii characters temporarily.
 		Path tempInput = input.resolveSibling(Utils.randomString(32));
-		NIO.move_force(input, tempInput);
 		Path tempOutput = tempInput.resolveSibling(tempInput.getFileName() + ".decrypted");
+		NIO.move_force(input, tempInput);
+		
 		int retval = MP4Decrypt.decrypt(tempInput, tempOutput, key);
+		
+		if(retval != 0) {
+			throw new IllegalStateException("Decryption eneded unsucessfully");
+		}
+		
+		// Clean up the temporary files and replace the encrypted input file with
+		// the new decrypted one.
 		NIO.move_force(tempOutput, input);
 		NIO.delete(tempInput);
-		return retval;
 	}
 	
 	@Override
@@ -288,6 +302,11 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			
 			decryptTracker.state(DecryptionProcessState.OBTAIN_KEYS);
 			DRMResolver resolver = engine.createResolver();
+			
+			if(resolver == null) {
+				throw new IllegalStateException("Invalid DRM resolver");
+			}
+			
 			Request request = resolver.createRequest(media);
 			
 			if(request == null) {
@@ -305,6 +324,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
 				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys);
 				
+				if(keyVideo == null) {
+					throw new IllegalStateException("Decryption key for video not found");
+				}
+				
 				if(!checkState()) return;
 			}
 			
@@ -312,6 +335,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
 				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
 				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys);
+				
+				if(keyAudio == null) {
+					throw new IllegalStateException("Decryption key for audio not found");
+				}
 				
 				if(!checkState()) return;
 			}
