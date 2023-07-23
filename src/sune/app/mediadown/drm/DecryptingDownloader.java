@@ -33,6 +33,7 @@ import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
 import sune.app.mediadown.event.Listener;
+import sune.app.mediadown.event.tracker.TrackerEvent;
 import sune.app.mediadown.event.tracker.TrackerManager;
 import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.ffmpeg.FFmpeg;
@@ -208,17 +209,20 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		state.set(TaskStates.RUNNING);
 		state.set(TaskStates.STARTED);
 		
+		manager.addEventListener(
+			TrackerEvent.UPDATE,
+			(p) -> eventRegistry.call(DownloadEvent.UPDATE, new Pair<>(downloader, manager))
+		);
+		
 		Downloader downloaderInstance = Downloaders.get("wms");
 		DownloadResult result = downloaderInstance.download(media, dest, configuration);
 		Download download = result.download();
+		eventRegistry.bindAll(download, DownloadEvent.UPDATE);
 		
 		WMSDelegator delegator = new WMSDelegator(download);
 		downloader = delegator.ensureInternalDownloader();
 		
 		eventRegistry.call(DownloadEvent.BEGIN, downloader);
-		
-		eventRegistry.bindAll(download, DownloadEvent.values());
-		eventRegistry.add(DownloadEvent.UPDATE, (p) -> manager.tracker(p.b.tracker()));
 		
 		List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
 		List<Path> tempFiles = delegator.temporaryFiles(mediaSingles.size());
