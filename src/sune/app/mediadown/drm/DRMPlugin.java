@@ -7,7 +7,7 @@ import sune.app.mediadown.plugin.PluginBase;
 
 @Plugin(name          = "drm",
 		title         = "plugin.drm.title",
-		version       = "00.02.09-0004",
+		version       = "00.02.09-0005",
 		author        = "Sune",
 		updateBaseURL = "https://app.sune.tech/mediadown/dat/plugin/0002/plugin/drm/",
 		updatable     = true,
