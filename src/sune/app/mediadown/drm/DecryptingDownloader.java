@@ -67,6 +67,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	private final SyncObject lockPause = new SyncObject();
 	
 	private DownloadPipelineResult pipelineResult;
+	private Download download;
 	private InternalDownloader downloader;
 	
 	DecryptingDownloader(Media media, Path dest, MediaDownloadConfiguration configuration) {
@@ -74,6 +75,16 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		this.dest          = Objects.requireNonNull(dest);
 		this.configuration = Objects.requireNonNull(configuration);
 		manager.tracker(new WaitTracker());
+	}
+	
+	private final boolean checkState() {
+		// Wait for resume, if paused
+		if(isPaused()) {
+			lockPause.await();
+		}
+		
+		// If already not running, do not continue
+		return state.is(TaskStates.RUNNING);
 	}
 	
 	private final String extractWidevinePSSH(List<MediaProtection> protections) {
@@ -216,7 +227,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		
 		Downloader downloaderInstance = Downloaders.get("wms");
 		DownloadResult result = downloaderInstance.download(media, dest, configuration);
-		Download download = result.download();
+		download = result.download();
 		eventRegistry.bindAll(download, DownloadEvent.UPDATE);
 		
 		WMSDelegator delegator = new WMSDelegator(download);
@@ -260,6 +271,8 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			throw new IllegalStateException("DRM engine not found");
 		}
 		
+		if(!checkState()) return;
+		
 		try {
 			DecryptionProcessTracker decryptTracker = new DecryptionProcessTracker();
 			manager.tracker(decryptTracker);
@@ -270,6 +283,8 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			if(pssh == null) {
 				throw new IllegalStateException("PSSH could not be extracted");
 			}
+			
+			if(!checkState()) return;
 			
 			decryptTracker.state(DecryptionProcessState.OBTAIN_KEYS);
 			DRMResolver resolver = engine.createResolver();
@@ -289,24 +304,34 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
 				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
 				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys);
+				
+				if(!checkState()) return;
 			}
 			
 			if((psshValue = pssh.audio()) != null) {
 				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
 				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
 				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys);
+				
+				if(!checkState()) return;
 			}
 			
 			download.start();
 			
+			if(!checkState()) return;
+			
 			if(keyVideo != null) {
 				decryptTracker.state(DecryptionProcessState.DECRYPT_VIDEO);
 				decrypt(pathVideo, keyVideo);
+				
+				if(!checkState()) return;
 			}
 			
 			if(keyAudio != null) {
 				decryptTracker.state(DecryptionProcessState.DECRYPT_AUDIO);
 				decrypt(pathAudio, keyAudio);
+				
+				if(!checkState()) return;
 			}
 			
 			// Forward the original pipeline result
@@ -330,6 +355,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		state.unset(TaskStates.PAUSED);
 		lockPause.unlock();
 		
+		if(download != null) {
+			download.stop();
+		}
+		
 		if(downloader != null) {
 			downloader.stop();
 		}
@@ -346,6 +375,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		if(state.is(TaskStates.PAUSED))
 			return; // Nothing to do
 		
+		if(download != null) {
+			download.pause();
+		}
+		
 		if(downloader != null) {
 			downloader.pause();
 		}
@@ -359,6 +392,10 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	public final void resume() throws Exception {
 		if(!state.is(TaskStates.PAUSED))
 			return; // Nothing to do
+		
+		if(download != null) {
+			download.resume();
+		}
 		
 		if(downloader != null) {
 			downloader.resume();
