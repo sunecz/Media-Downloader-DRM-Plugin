@@ -51,8 +51,6 @@ import sune.app.mediadown.media.MediaProtection;
 import sune.app.mediadown.media.MediaProtectionType;
 import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.media.SegmentedMedia;
-import sune.app.mediadown.media.format.MPD;
-import sune.app.mediadown.media.format.MPD.MPDCombinedFile;
 import sune.app.mediadown.net.Web.Request;
 import sune.app.mediadown.pipeline.DownloadPipelineResult;
 import sune.app.mediadown.util.Metadata;
@@ -78,6 +76,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	private DownloadPipelineResult pipelineResult;
 	private Download download;
 	private InternalDownloader downloader;
+	private WMSDelegator delegator;
 	
 	DecryptingDownloader(Media media, Path dest, MediaDownloadConfiguration configuration) {
 		this.media         = Objects.requireNonNull(media);
@@ -104,6 +103,12 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 					.findFirst().orElse(null);
 	}
 	
+	private final Media protectedMediaOfType(List<Media> mediaSingles, MediaType type) {
+		return mediaSingles.stream()
+					.filter((m) -> m.type().is(type) && m.metadata().isProtected())
+					.findFirst().orElse(null);
+	}
+	
 	private final PSSH extractPSSH(Media media) throws Exception {
 		if(media.format() != MediaFormat.DASH) {
 			throw new IllegalArgumentException("Only DASH is supported so far");
@@ -113,26 +118,22 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			throw new IllegalArgumentException("Media not protected");
 		}
 		
-		Request request = Request.of(media.uri()).GET();
+		String valueVideo = null;
+		String valueAudio = null;
 		
-		for(MPDCombinedFile result : MPD.reduce(MPD.parse(request))) {
-			MPD.ContentProtection protectionVideo = result.video().protection();
-			MPD.ContentProtection protectionAudio = result.audio().protection();
-			String valueVideo = null;
-			String valueAudio = null;
-			
-			if(protectionVideo.isPresent()) {
-				valueVideo = extractWidevinePSSH(protectionVideo.protections());
-			}
-			
-			if(protectionAudio.isPresent()) {
-				valueAudio = extractWidevinePSSH(protectionAudio.protections());
-			}
-			
-			return new PSSH(valueVideo, valueAudio);
+		List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
+		Media video = protectedMediaOfType(mediaSingles, MediaType.VIDEO);
+		Media audio = protectedMediaOfType(mediaSingles, MediaType.AUDIO);
+		
+		if(video != null) {
+			valueVideo = extractWidevinePSSH(video.metadata().protections());
 		}
 		
-		return null;
+		if(audio != null) {
+			valueAudio = extractWidevinePSSH(audio.metadata().protections());
+		}
+		
+		return new PSSH(valueVideo, valueAudio);
 	}
 	
 	private final Path downloadTestSegments(FileDownloader downloader, Path input, List<FileSegment> segments,
@@ -253,7 +254,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		download = result.download();
 		eventRegistry.bindAll(download, DownloadEvent.UPDATE);
 		
-		WMSDelegator delegator = new WMSDelegator(download);
+		delegator = new WMSDelegator(download);
 		downloader = delegator.ensureInternalDownloader();
 		
 		eventRegistry.call(DownloadEvent.BEGIN, downloader);
@@ -302,10 +303,6 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			
 			decryptTracker.state(DecryptionProcessState.EXTRACT_PSSH);
 			PSSH pssh = extractPSSH(media);
-			
-			if(pssh == null) {
-				throw new IllegalStateException("PSSH could not be extracted");
-			}
 			
 			if(!checkState()) return;
 			
