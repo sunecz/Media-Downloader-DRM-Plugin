@@ -51,10 +51,10 @@ import sune.app.mediadown.media.MediaProtectionType;
 import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.media.SegmentedMedia;
 import sune.app.mediadown.net.Web.Request;
+import sune.app.mediadown.net.Web.Response;
 import sune.app.mediadown.pipeline.DownloadPipelineResult;
 import sune.app.mediadown.util.Metadata;
 import sune.app.mediadown.util.NIO;
-import sune.app.mediadown.util.Pair;
 import sune.app.mediadown.util.Range;
 import sune.app.mediadown.util.Reflection3;
 import sune.app.mediadown.util.Regex;
@@ -62,7 +62,7 @@ import sune.app.mediadown.util.Utils;
 
 public final class DecryptingDownloader implements Download, DownloadResult {
 	
-	private final TrackerManager manager = new TrackerManager();
+	private final TrackerManager trackerManager = new TrackerManager();
 	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
 	
 	private final Media media;
@@ -76,12 +76,13 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	private Download download;
 	private InternalDownloader downloader;
 	private WMSDelegator delegator;
+	private Exception exception;
 	
 	DecryptingDownloader(Media media, Path dest, MediaDownloadConfiguration configuration) {
 		this.media         = Objects.requireNonNull(media);
 		this.dest          = Objects.requireNonNull(dest);
 		this.configuration = Objects.requireNonNull(configuration);
-		manager.tracker(new WaitTracker());
+		trackerManager.tracker(new WaitTracker());
 	}
 	
 	private final boolean checkState() {
@@ -243,9 +244,11 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		state.set(TaskStates.RUNNING);
 		state.set(TaskStates.STARTED);
 		
-		manager.addEventListener(
+		// Transform any tracker updates to download updates, since the program only listens
+		// to the download events.
+		trackerManager.addEventListener(
 			TrackerEvent.UPDATE,
-			(p) -> eventRegistry.call(DownloadEvent.UPDATE, new Pair<>(downloader, manager))
+			(p) -> eventRegistry.call(DownloadEvent.UPDATE, this)
 		);
 		
 		Downloader downloaderInstance = Downloaders.get("wms");
@@ -256,7 +259,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		delegator = new WMSDelegator(download);
 		downloader = delegator.ensureInternalDownloader();
 		
-		eventRegistry.call(DownloadEvent.BEGIN, downloader);
+		eventRegistry.call(DownloadEvent.BEGIN, this);
 		
 		try {
 			List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
@@ -298,7 +301,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			if(!checkState()) return;
 			
 			DecryptionProcessTracker decryptTracker = new DecryptionProcessTracker();
-			manager.tracker(decryptTracker);
+			trackerManager.tracker(decryptTracker);
 			
 			decryptTracker.state(DecryptionProcessState.EXTRACT_PSSH);
 			PSSH pssh = extractPSSH(media);
@@ -371,7 +374,9 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			
 			state.set(TaskStates.DONE);
 		} catch(Exception ex) {
-			eventRegistry.call(DownloadEvent.ERROR, new Pair<>(downloader, ex));
+			exception = ex;
+			state.set(TaskStates.ERROR);
+			eventRegistry.call(DownloadEvent.ERROR, this);
 			throw ex; // Forward the exception
 		} finally {
 			stop();
@@ -399,7 +404,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			state.set(TaskStates.STOPPED);
 		}
 		
-		eventRegistry.call(DownloadEvent.END, downloader);
+		eventRegistry.call(DownloadEvent.END, this);
 	}
 	
 	@Override
@@ -417,7 +422,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		
 		state.unset(TaskStates.RUNNING);
 		state.set(TaskStates.PAUSED);
-		eventRegistry.call(DownloadEvent.PAUSE, downloader);
+		eventRegistry.call(DownloadEvent.PAUSE, this);
 	}
 	
 	@Override
@@ -436,7 +441,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		state.unset(TaskStates.PAUSED);
 		state.set(TaskStates.RUNNING);
 		lockPause.unlock();
-		eventRegistry.call(DownloadEvent.RESUME, downloader);
+		eventRegistry.call(DownloadEvent.RESUME, this);
 	}
 	
 	@Override
@@ -487,6 +492,41 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	@Override
 	public <V> void removeEventListener(Event<? extends DownloadEvent, V> event, Listener<V> listener) {
 		eventRegistry.remove(event, listener);
+	}
+	
+	@Override
+	public TrackerManager trackerManager() {
+		return trackerManager;
+	}
+	
+	@Override
+	public Exception exception() {
+		return exception;
+	}
+	
+	@Override
+	public Request request() {
+		return download.request();
+	}
+	
+	@Override
+	public Path output() {
+		return download.output();
+	}
+	
+	@Override
+	public DownloadConfiguration configuration() {
+		return download.configuration();
+	}
+	
+	@Override
+	public Response response() {
+		return download.response();
+	}
+	
+	@Override
+	public long totalBytes() {
+		return download.totalBytes();
 	}
 	
 	private static final class PSSH {
