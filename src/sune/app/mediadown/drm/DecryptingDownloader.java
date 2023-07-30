@@ -14,7 +14,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.InternalState;
-import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.TaskStates;
 import sune.app.mediadown.concurrent.SyncObject;
 import sune.app.mediadown.conversion.ConversionCommand;
@@ -373,10 +372,6 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			state.set(TaskStates.DONE);
 		} catch(Exception ex) {
 			eventRegistry.call(DownloadEvent.ERROR, new Pair<>(downloader, ex));
-			
-			// Temporarily also show the Media Downloader error window
-			MediaDownloader.error(ex);
-			
 			throw ex; // Forward the exception
 		} finally {
 			stop();
