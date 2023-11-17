@@ -1,9 +1,9 @@
 package sune.app.mediadown.drm;
 
 import sune.app.mediadown.MediaDownloader;
-import sune.app.mediadown.entity.Downloaders;
 import sune.app.mediadown.plugin.Plugin;
 import sune.app.mediadown.plugin.PluginBase;
+import sune.app.mediadown.transformer.Transformers;
 
 @Plugin(name          = "drm",
 		title         = "plugin.drm.title",
@@ -21,7 +21,7 @@ public final class DRMPlugin extends PluginBase {
 	@Override
 	public void init() throws Exception {
 		translatedTitle = MediaDownloader.translation().getSingle(super.getTitle());
-		Downloaders.add("drm", DRMDownloader.class);
+		Transformers.add("drm", DecryptionTransformer.class);
 	}
 	
 	@Override

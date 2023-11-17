@@ -14,6 +14,9 @@ import sune.app.mediadown.util.Reflection2;
 @PluginBootstrap(pluginClass=DRMPlugin.class)
 public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	
+	DRMPluginBootstrap() {
+	}
+	
 	private static final String format(String format, Object... args) {
 		return String.format(Locale.US, format, args);
 	}

@@ -1,16 +1,9 @@
 package sune.app.mediadown.drm;
 
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.text.Normalizer;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.InternalState;
@@ -20,22 +13,19 @@ import sune.app.mediadown.conversion.ConversionCommand;
 import sune.app.mediadown.conversion.ConversionCommand.Input;
 import sune.app.mediadown.conversion.ConversionCommand.Option;
 import sune.app.mediadown.conversion.ConversionCommand.Output;
-import sune.app.mediadown.download.Download;
 import sune.app.mediadown.download.DownloadConfiguration;
-import sune.app.mediadown.download.DownloadResult;
 import sune.app.mediadown.download.FileDownloader;
-import sune.app.mediadown.download.InternalDownloader;
-import sune.app.mediadown.download.MediaDownloadConfiguration;
 import sune.app.mediadown.download.segment.FileSegment;
+import sune.app.mediadown.drm.event.DecryptionContext;
+import sune.app.mediadown.drm.event.DecryptionEvent;
 import sune.app.mediadown.drm.tracker.DecryptionProcessState;
 import sune.app.mediadown.drm.tracker.DecryptionProcessTracker;
+import sune.app.mediadown.drm.util.AsciiUtils;
 import sune.app.mediadown.drm.util.MP4Decrypt;
 import sune.app.mediadown.drm.util.MediaDecryptionKey;
 import sune.app.mediadown.drm.util.MediaDecryptionRequest;
+import sune.app.mediadown.drm.util.PSSH;
 import sune.app.mediadown.drm.util.WV;
-import sune.app.mediadown.entity.Downloader;
-import sune.app.mediadown.entity.Downloaders;
-import sune.app.mediadown.event.DownloadEvent;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
@@ -51,37 +41,32 @@ import sune.app.mediadown.media.MediaProtectionType;
 import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.media.SegmentedMedia;
 import sune.app.mediadown.net.Web.Request;
-import sune.app.mediadown.net.Web.Response;
-import sune.app.mediadown.pipeline.DownloadPipelineResult;
+import sune.app.mediadown.util.CheckedConsumer;
 import sune.app.mediadown.util.Metadata;
 import sune.app.mediadown.util.NIO;
+import sune.app.mediadown.util.ProcessUtils;
 import sune.app.mediadown.util.Range;
-import sune.app.mediadown.util.Reflection3;
-import sune.app.mediadown.util.Regex;
 import sune.app.mediadown.util.Utils;
 
-public final class DecryptingDownloader implements Download, DownloadResult {
+public final class Decryptor implements DecryptionContext {
 	
 	private final TrackerManager trackerManager = new TrackerManager();
 	private final EventRegistry<EventType> eventRegistry = new EventRegistry<>();
 	
-	private final Media media;
-	private final Path dest;
-	private final MediaDownloadConfiguration configuration;
+	private final Media rootMedia;
+	private final List<Media> inputMedia;
+	private final List<Path> inputPaths;
 	
 	private final InternalState state = new InternalState();
 	private final SyncObject lockPause = new SyncObject();
 	
-	private DownloadPipelineResult pipelineResult;
-	private Download download;
-	private InternalDownloader downloader;
-	private WMSDelegator delegator;
+	private ReadOnlyProcess decryptProcess;
 	private Exception exception;
 	
-	DecryptingDownloader(Media media, Path dest, MediaDownloadConfiguration configuration) {
-		this.media         = Objects.requireNonNull(media);
-		this.dest          = Objects.requireNonNull(dest);
-		this.configuration = Objects.requireNonNull(configuration);
+	public Decryptor(Media rootMedia, List<Media> inputMedia, List<Path> inputPaths) {
+		this.rootMedia = Objects.requireNonNull(rootMedia);
+		this.inputMedia = Objects.requireNonNull(inputMedia);
+		this.inputPaths = Objects.requireNonNull(inputPaths);
 		trackerManager.tracker(new WaitTracker());
 	}
 	
@@ -121,9 +106,8 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		String valueVideo = null;
 		String valueAudio = null;
 		
-		List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
-		Media video = protectedMediaOfType(mediaSingles, MediaType.VIDEO);
-		Media audio = protectedMediaOfType(mediaSingles, MediaType.AUDIO);
+		Media video = protectedMediaOfType(inputMedia, MediaType.VIDEO);
+		Media audio = protectedMediaOfType(inputMedia, MediaType.AUDIO);
 		
 		if(video != null) {
 			valueVideo = extractWidevinePSSH(video.metadata().protections());
@@ -222,7 +206,8 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		Path tempOutput = tempInput.resolveSibling(tempInput.getFileName() + ".decrypted");
 		NIO.move(input, tempInput);
 		
-		int retval = MP4Decrypt.decrypt(tempInput, tempOutput, key);
+		decryptProcess = MP4Decrypt.execute(tempInput, tempOutput, key);
+		int retval = decryptProcess.waitFor();
 		
 		if(retval != 0) {
 			throw new IllegalStateException("Decryption eneded unsucessfully");
@@ -235,8 +220,19 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		AsciiUtils.maybeDeleteTempDirectories();
 	}
 	
-	@Override
-	public final void start() throws Exception {
+	private final void processAction(CheckedConsumer<Process> action) throws Exception {
+		Process process;
+		
+		// Check the chain of values to avoid NPE
+		if(decryptProcess == null
+				|| (process = decryptProcess.process()) == null) {
+			return;
+		}
+		
+		action.accept(process);
+	}
+	
+	public void start() throws Exception {
 		if(state.is(TaskStates.STARTED) && state.is(TaskStates.RUNNING)) {
 			return; // Nothing to do
 		}
@@ -244,35 +240,23 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 		state.set(TaskStates.RUNNING);
 		state.set(TaskStates.STARTED);
 		
-		// Transform any tracker updates to download updates, since the program only listens
-		// to the download events.
+		// Translate the Tracker events so that the updates are propagated correctly.
 		trackerManager.addEventListener(
 			TrackerEvent.UPDATE,
-			(p) -> eventRegistry.call(DownloadEvent.UPDATE, this)
+			(p) -> eventRegistry.call(DecryptionEvent.UPDATE, this)
 		);
 		
-		Downloader downloaderInstance = Downloaders.get("wms");
-		DownloadResult result = downloaderInstance.download(media, dest, configuration);
-		download = result.download();
-		eventRegistry.bindAll(download, DownloadEvent.UPDATE);
-		
-		delegator = new WMSDelegator(download);
-		downloader = delegator.ensureInternalDownloader();
-		
-		eventRegistry.call(DownloadEvent.BEGIN, this);
+		eventRegistry.call(DecryptionEvent.BEGIN, this);
 		
 		try {
-			List<Media> mediaSingles = delegator.mediaSegmentedSingles(media);
-			List<Path> tempFiles = delegator.temporaryFiles(mediaSingles.size());
-			
 			List<FileSegment> segmentsVideo = null;
 			List<FileSegment> segmentsAudio = null;
 			Path pathVideo = null;
 			Path pathAudio = null;
 			
-			for(int i = 0, l = mediaSingles.size(); i < l; ++i) {
-				Path tempFile = tempFiles.get(i);
-				Media media = mediaSingles.get(i);
+			for(int i = 0, l = inputMedia.size(); i < l; ++i) {
+				Path tempFile = inputPaths.get(i);
+				Media media = inputMedia.get(i);
 				MediaType type = media.type();
 				
 				if(type.is(MediaType.VIDEO)) {
@@ -292,7 +276,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				throw new IllegalStateException("Only segmentable video and audio supported");
 			}
 			
-			DRMEngine engine = DRMEngines.fromURI(media.metadata().sourceURI());
+			DRMEngine engine = DRMEngines.fromURI(rootMedia.metadata().sourceURI());
 			
 			if(engine == null) {
 				throw new IllegalStateException("DRM engine not found");
@@ -304,7 +288,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 			trackerManager.tracker(decryptTracker);
 			
 			decryptTracker.state(DecryptionProcessState.EXTRACT_PSSH);
-			PSSH pssh = extractPSSH(media);
+			PSSH pssh = extractPSSH(rootMedia);
 			
 			if(!checkState()) return;
 			
@@ -315,7 +299,7 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				throw new IllegalStateException("Invalid DRM resolver");
 			}
 			
-			Request request = resolver.createRequest(media);
+			Request request = resolver.createRequest(rootMedia);
 			
 			if(request == null) {
 				throw new IllegalStateException("Request cannot be null");
@@ -351,10 +335,6 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				if(!checkState()) return;
 			}
 			
-			download.start();
-			
-			if(!checkState()) return;
-			
 			if(keyVideo != null) {
 				decryptTracker.state(DecryptionProcessState.DECRYPT_VIDEO);
 				decrypt(pathVideo, keyVideo);
@@ -369,113 +349,82 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 				if(!checkState()) return;
 			}
 			
-			// Forward the original pipeline result
-			pipelineResult = (DownloadPipelineResult) result.pipelineResult();
-			
 			state.set(TaskStates.DONE);
 		} catch(Exception ex) {
 			exception = ex;
 			state.set(TaskStates.ERROR);
-			eventRegistry.call(DownloadEvent.ERROR, this);
+			eventRegistry.call(DecryptionEvent.ERROR, this);
 			throw ex; // Forward the exception
 		} finally {
 			stop();
 		}
 	}
 	
-	@Override
-	public final void stop() throws Exception {
-		if(state.is(TaskStates.STOPPED))
+	public void stop() throws Exception {
+		if(state.is(TaskStates.STOPPED)) {
 			return; // Nothing to do
+		}
 		
 		state.unset(TaskStates.RUNNING);
 		state.unset(TaskStates.PAUSED);
 		lockPause.unlock();
 		
-		if(download != null) {
-			download.stop();
-		}
-		
-		if(downloader != null) {
-			downloader.stop();
-		}
+		processAction(Process::destroyForcibly);
 		
 		if(!state.is(TaskStates.DONE)) {
 			state.set(TaskStates.STOPPED);
 		}
 		
-		eventRegistry.call(DownloadEvent.END, this);
+		eventRegistry.call(DecryptionEvent.END, this);
 	}
 	
-	@Override
-	public final void pause() throws Exception {
-		if(state.is(TaskStates.PAUSED))
+	public void pause() throws Exception {
+		if(state.is(TaskStates.PAUSED)) {
 			return; // Nothing to do
-		
-		if(download != null) {
-			download.pause();
 		}
 		
-		if(downloader != null) {
-			downloader.pause();
-		}
+		processAction(ProcessUtils::pause);
 		
 		state.unset(TaskStates.RUNNING);
 		state.set(TaskStates.PAUSED);
-		eventRegistry.call(DownloadEvent.PAUSE, this);
+		eventRegistry.call(DecryptionEvent.PAUSE, this);
 	}
 	
-	@Override
-	public final void resume() throws Exception {
-		if(!state.is(TaskStates.PAUSED))
+	public void resume() throws Exception {
+		if(!state.is(TaskStates.PAUSED)) {
 			return; // Nothing to do
-		
-		if(download != null) {
-			download.resume();
 		}
 		
-		if(downloader != null) {
-			downloader.resume();
-		}
+		processAction(ProcessUtils::resume);
 		
 		state.unset(TaskStates.PAUSED);
 		state.set(TaskStates.RUNNING);
 		lockPause.unlock();
-		eventRegistry.call(DownloadEvent.RESUME, this);
+		eventRegistry.call(DecryptionEvent.RESUME, this);
 	}
 	
 	@Override
-	public Download download() {
-		return this;
-	}
-	
-	@Override
-	public DownloadPipelineResult pipelineResult() {
-		return pipelineResult;
-	}
-	
-	@Override
-	public final boolean isRunning() {
+	public boolean isRunning() {
 		return state.is(TaskStates.RUNNING);
 	}
 	
 	@Override
-	public final boolean isStarted() {
+	public boolean isStarted() {
 		return state.is(TaskStates.STARTED);
 	}
 	
 	@Override
-	public final boolean isDone() {
+	public boolean isDone() {
 		return state.is(TaskStates.DONE);
 	}
 	
 	@Override
-	public final boolean isPaused() {
+	public boolean isPaused() {
 		return state.is(TaskStates.PAUSED);
 	}
 	
 	@Override
-	public final boolean isStopped() {
+	public boolean isStopped() {
 		return state.is(TaskStates.STOPPED);
 	}
 	
@@ -485,12 +434,12 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	}
 	
 	@Override
-	public <V> void addEventListener(Event<? extends DownloadEvent, V> event, Listener<V> listener) {
+	public <V> void addEventListener(Event<? extends DecryptionEvent, V> event, Listener<V> listener) {
 		eventRegistry.add(event, listener);
 	}
 	
 	@Override
-	public <V> void removeEventListener(Event<? extends DownloadEvent, V> event, Listener<V> listener) {
+	public <V> void removeEventListener(Event<? extends DecryptionEvent, V> event, Listener<V> listener) {
 		eventRegistry.remove(event, listener);
 	}
 	
@@ -502,224 +451,5 @@ public final class DecryptingDownloader implements Download, DownloadResult {
 	@Override
 	public Exception exception() {
 		return exception;
-	}
-	
-	@Override
-	public Request request() {
-		return download.request();
-	}
-	
-	@Override
-	public Path output() {
-		return download.output();
-	}
-	
-	@Override
-	public DownloadConfiguration configuration() {
-		return download.configuration();
-	}
-	
-	@Override
-	public Response response() {
-		return download.response();
-	}
-	
-	@Override
-	public long totalBytes() {
-		return download.totalBytes();
-	}
-	
-	private static final class PSSH {
-		
-		private final String video;
-		private final String audio;
-		
-		public PSSH(String video, String audio) {
-			this.video = video;
-			this.audio = audio;
-		}
-		
-		public String video() {
-			return video;
-		}
-		
-		public String audio() {
-			return audio;
-		}
-	}
-	
-	private static final class AsciiUtils {
-		
-		private static final CharsetEncoder asciiEncoder = StandardCharsets.US_ASCII.newEncoder();
-		private static final Path tempDir = Path.of(System.getProperty("java.io.tmpdir"));
-		private static final Regex regexNotAscii = Regex.of("[^\\p{ASCII}]");
-		private static final Queue<Path> dirsToDelete = new ConcurrentLinkedQueue<>();
-		
-		static {
-			Runtime.getRuntime().addShutdownHook(new Thread(AsciiUtils::maybeDeleteTempDirectories));
-		}
-		
-		private static final String toAscii(String string) {
-			return regexNotAscii.replaceAll(Normalizer.normalize(string, Normalizer.Form.NFD), "");
-		}
-		
-		private static final boolean isOnlyAscii(String string) {
-			return asciiEncoder.canEncode(string);
-		}
-		
-		private static final boolean isOnlyAscii(Path path) {
-			for(int i = 0, l = path.getNameCount(); i < l; ++i) {
-				if(!isOnlyAscii(path.getName(i).toString())) {
-					return false;
-				}
-			}
-			
-			return true;
-		}
-		
-		private static final Path asciiOnlyTempDir(Path absDir) {
-			Path asciiDir = absDir.getRoot();
-			
-			for(int i = 0, l = absDir.getNameCount(); i < l; ++i) {
-				String part = absDir.getName(i).toString();
-				
-				if(!isOnlyAscii(part)) {
-					part = toAscii(part);
-				}
-				
-				asciiDir = asciiDir.resolve(part);
-			}
-			
-			return asciiDir;
-		}
-		
-		private static final void createTempDirectories(Path dir) throws IOException {
-			Path current = dir.getRoot();
-			
-			for(int i = 0, l = dir.getNameCount(); i < l; ++i) {
-				current = current.resolve(dir.getName(i));
-				
-				if(!NIO.exists(current)) {
-					NIO.createDir(current);
-					
-					// Make the directory only temporary
-					synchronized(dirsToDelete) {
-						dirsToDelete.add(current);
-					}
-				}
-			}
-		}
-		
-		public static final Path tempPath(Path desiredAbsDir, String asciiFileName) throws IOException {
-			if(!isOnlyAscii(asciiFileName)) {
-				throw new IllegalArgumentException("Non-ASCII file name");
-			}
-			
-			Path tempPath;
-			
-			// Try the desired path first. For Czech users this will probably fail,
-			// since they often have Czech characters with diacritics in the path.
-			tempPath = desiredAbsDir.resolve(asciiFileName);
-			if(isOnlyAscii(tempPath)) return tempPath;
-			
-			// Try the temporary directory, this should be ASCII-only for most users.
-			tempPath = tempDir.resolve(asciiFileName);
-			if(isOnlyAscii(tempPath)) return tempPath;
-			
-			// If all above fails, try to recreate the desiredDir but with ASCII-only
-			// characters in the names. However, this may fail since permissions may
-			// vary from user to user to create the required directories.
-			Path asciiTempDir = asciiOnlyTempDir(desiredAbsDir);
-			createTempDirectories(asciiTempDir);
-			tempPath = asciiTempDir.resolve(asciiFileName);
-			
-			return tempPath;
-		}
-		
-		public static final void maybeDeleteTempDirectories() {
-			List<Path> dirs = new ArrayList<>();
-			
-			// Make a snapshot of the directories to delete
-			synchronized(dirsToDelete) {
-				dirs.addAll(dirsToDelete);
-			}
-			
-			for(Path dir : dirs) {
-				try {
-					NIO.delete(dir);
-				} catch(IOException ex) {
-					// Ignore, nothing to do with it
-				}
-			}
-		}
-	}
-	
-	protected static class Delegator {
-		
-		protected final Class<?> clazz;
-		
-		protected Delegator(Class<?> clazz) {
-			this.clazz = Objects.requireNonNull(clazz);
-		}
-		
-		public Object callStatic(String methodName, Class<?>[] classes, Object... args) {
-			try {
-				// Delegate to the SegmentsDownloader to have only one point of truth
-				return Reflection3.invokeStatic(clazz, methodName, classes, args);
-			} catch(NoSuchMethodException
-						| NoSuchFieldException
-						| IllegalArgumentException
-			        	| IllegalAccessException
-			        	| InvocationTargetException
-			        	| SecurityException ex) {
-				throw new RuntimeException(ex);
-			}
-		}
-		
-		public Object call(Object instance, String methodName, Class<?>[] classes, Object... args) {
-			try {
-				// Delegate to the SegmentsDownloader to have only one point of truth
-				return Reflection3.invoke(instance, clazz, methodName, classes, args);
-			} catch(NoSuchMethodException
-						| NoSuchFieldException
-						| IllegalArgumentException
-			        	| IllegalAccessException
-			        	| InvocationTargetException
-			        	| SecurityException ex) {
-				throw new RuntimeException(ex);
-			}
-		}
-	}
-	
-	protected static class WMSDelegator extends Delegator {
-		
-		private static final Class<?> clazz;
-		
-		static {
-			try {
-				clazz = Class.forName("sune.app.mediadown.downloader.wms.SegmentsDownloader");
-			} catch(ClassNotFoundException ex) {
-				throw new IllegalStateException(ex);
-			}
-		}
-		
-		private final Object instance;
-		
-		public WMSDelegator(Object instance) {
-			super(clazz);
-			this.instance = Objects.requireNonNull(instance);
-		}
-		
-		public List<Media> mediaSegmentedSingles(Media media) {
-			return Utils.cast(callStatic("mediaSegmentedSingles", new Class[] { Media.class }, media));
-		}
-		
-		public List<Path> temporaryFiles(int count) {
-			return Utils.cast(call(instance, "temporaryFiles", new Class[] { int.class }, count));
-		}
-		
-		public InternalDownloader ensureInternalDownloader() {
-			return Utils.cast(call(instance, "ensureInternalDownloader", new Class[0]));
-		}
 	}
 }

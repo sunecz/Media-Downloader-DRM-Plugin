@@ -41,17 +41,22 @@ public final class MP4Decrypt {
 		return Processes.createAsynchronous(path(), listener);
 	}
 	
+	public static final ReadOnlyProcess execute(Path input, Path output, MediaDecryptionKey key) throws Exception {
+		ReadOnlyProcess process = createAsynchronousProcess((l) -> {});
+		String command = Utils.format(
+			"--key %{kid}s:%{key}s \"%{input}s\" \"%{output}s\"",
+			"kid", key.kid(),
+			"key", key.key(),
+			"input", input.toAbsolutePath().toString(),
+			"output", output.toAbsolutePath().toString()
+		);
+		
+		process.execute(command);
+		return process;
+	}
+	
 	public static final int decrypt(Path input, Path output, MediaDecryptionKey key) throws Exception {
-		try(ReadOnlyProcess process = createAsynchronousProcess((l) -> {})) {
-			String command = Utils.format(
-				"--key %{kid}s:%{key}s \"%{input}s\" \"%{output}s\"",
-				"kid", key.kid(),
-				"key", key.key(),
-				"input", input.toAbsolutePath().toString(),
-				"output", output.toAbsolutePath().toString()
-			);
-			
-			process.execute(command);
+		try(ReadOnlyProcess process = execute(input, output, key)) {
 			return process.waitFor();
 		}
 	}
