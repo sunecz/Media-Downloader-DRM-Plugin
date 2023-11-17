@@ -195,6 +195,20 @@ public final class Decryptor implements DecryptionContext {
 		}
 	}
 	
+	private final List<MediaDecryptionKey> decryptionKeys(MediaDecryptionRequest request) throws Exception {
+		final int numOfTries = 5;
+		
+		for(int i = 0; i < numOfTries; ++i) {
+			List<MediaDecryptionKey> keys = WV.decryptionKeys(request);
+			
+			if(keys != null && !keys.isEmpty()) {
+				return keys;
+			}
+		}
+		
+		return null;
+	}
+	
 	private final Path asciiTempPath(Path dir, String asciiFileName) throws IOException {
 		return AsciiUtils.tempPath(dir.toAbsolutePath(), asciiFileName);
 	}
@@ -313,7 +327,7 @@ public final class Decryptor implements DecryptionContext {
 			
 			if((psshValue = pssh.video()) != null) {
 				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
-				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
+				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
 				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys);
 				
 				if(keyVideo == null) {
@@ -325,7 +339,7 @@ public final class Decryptor implements DecryptionContext {
 			
 			if((psshValue = pssh.audio()) != null) {
 				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
-				List<MediaDecryptionKey> keys = WV.decryptionKeys(decryptRequest);
+				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
 				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys);
 				
 				if(keyAudio == null) {
