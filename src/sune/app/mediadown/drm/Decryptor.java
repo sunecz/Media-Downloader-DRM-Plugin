@@ -275,10 +275,10 @@ public final class Decryptor implements DecryptionContext {
 				
 				if(type.is(MediaType.VIDEO)) {
 					pathVideo = tempFile;
-					segmentsVideo = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
+					segmentsVideo = Utils.cast(((SegmentedMedia) media).segments().segments());
 				} else if(type.is(MediaType.AUDIO)) {
 					pathAudio = tempFile;
-					segmentsAudio = Utils.cast(((SegmentedMedia) media).segments().get(0).segments());
+					segmentsAudio = Utils.cast(((SegmentedMedia) media).segments().segments());
 				}
 			}
 			

@@ -10,5 +10,6 @@ module sune.app.mediadown.drm {
 	// Exports
 	exports sune.app.mediadown.drm;
 	exports sune.app.mediadown.drm.event;
+	exports sune.app.mediadown.drm.tracker;
 	exports sune.app.mediadown.drm.util;
 }
