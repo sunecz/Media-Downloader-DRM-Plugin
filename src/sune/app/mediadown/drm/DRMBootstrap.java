@@ -14,7 +14,7 @@ import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.MediaDownloader.Versions.VersionEntryAccessor;
 import sune.app.mediadown.download.DownloadConfiguration;
 import sune.app.mediadown.download.FileDownloader;
-import sune.app.mediadown.download.InputStreamChannelFactory;
+import sune.app.mediadown.download.InputStreamFactory;
 import sune.app.mediadown.drm.event.CheckEventContext;
 import sune.app.mediadown.drm.event.DRMBootstrapEvent;
 import sune.app.mediadown.drm.event.DownloadEventContext;
@@ -198,7 +198,7 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			FileDownloader downloader = new FileDownloader(manager);
 			
 			if(useCompressedStreams) {
-				downloader.setResponseChannelFactory(InputStreamChannelFactory.GZIP.ofDefault());
+				downloader.setResponseStreamFactory(InputStreamFactory.GZIP.ofDefault());
 			}
 			
 			DownloadTracker tracker = new DownloadTracker();
