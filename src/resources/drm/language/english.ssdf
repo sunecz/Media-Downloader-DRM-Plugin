@@ -7,6 +7,14 @@
 				obtain_keys:   "Obtain keys",
 				decrypt_video: "Decrypt video",
 				decrypt_audio: "Decrypt audio"
+			},
+			configuration: {
+				group: {
+					general: "DRM"
+				},
+				fields: {
+					keysMaxRetryAttempts: "Maximum number of retry attempts when obtaining decryption keys"
+				}
 			}
 		}
 	}

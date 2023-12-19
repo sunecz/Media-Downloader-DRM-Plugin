@@ -23,12 +23,21 @@ import sune.app.mediadown.pipeline.PipelineResult;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.pipeline.PipelineTransformer;
 import sune.app.mediadown.pipeline.TerminatingPipelineTask;
+import sune.app.mediadown.plugin.PluginBase;
+import sune.app.mediadown.plugin.PluginConfiguration;
+import sune.app.mediadown.plugin.PluginLoaderContext;
 import sune.app.mediadown.transformer.Transformer;
 import sune.app.mediadown.util.Utils.Ignore;
 
 public final class DecryptionTransformer implements Transformer {
 	
+	private static final PluginBase PLUGIN = PluginLoaderContext.getContext().getInstance();
+	
 	DecryptionTransformer() {
+	}
+	
+	private static final PluginConfiguration configuration() {
+		return PLUGIN.getContext().getConfiguration();
 	}
 	
 	@Override
@@ -89,9 +98,15 @@ public final class DecryptionTransformer implements Transformer {
 			return originalResult.inputs().stream().map(ConversionMedia::path).collect(Collectors.toList());
 		}
 		
+		private final int keysMaxRetryAttempts() {
+			return configuration().intValue("keysMaxRetryAttempts");
+		}
+		
 		@Override
 		public PipelineResult doRun(Pipeline pipeline) throws Exception {
-			decryptor = new Decryptor(originalResult.output().media(), inputMedia(), inputPaths());
+			decryptor = new Decryptor(
+				originalResult.output().media(), inputMedia(), inputPaths(), keysMaxRetryAttempts()
+			);
 			bindAllDecryptionEvents(decryptor, pipeline.getEventRegistry()); // Bind all events from the pipeline
 			Ignore.Cancellation.callVoid(decryptor::start); // Wait for the decryption to finish
 			return new DecryptionDonePipelineResult(originalResult);

@@ -56,6 +56,7 @@ public final class Decryptor implements DecryptionContext {
 	private final Media rootMedia;
 	private final List<Media> inputMedia;
 	private final List<Path> inputPaths;
+	private final int keysMaxRetryAttempts;
 	
 	private final InternalState state = new InternalState();
 	private final SyncObject lockPause = new SyncObject();
@@ -63,10 +64,11 @@ public final class Decryptor implements DecryptionContext {
 	private ReadOnlyProcess decryptProcess;
 	private Exception exception;
 	
-	public Decryptor(Media rootMedia, List<Media> inputMedia, List<Path> inputPaths) {
+	public Decryptor(Media rootMedia, List<Media> inputMedia, List<Path> inputPaths, int keysMaxRetryAttempts) {
 		this.rootMedia = Objects.requireNonNull(rootMedia);
 		this.inputMedia = Objects.requireNonNull(inputMedia);
 		this.inputPaths = Objects.requireNonNull(inputPaths);
+		this.keysMaxRetryAttempts = keysMaxRetryAttempts;
 		trackerManager.tracker(new WaitTracker());
 	}
 	
@@ -196,15 +198,15 @@ public final class Decryptor implements DecryptionContext {
 	}
 	
 	private final List<MediaDecryptionKey> decryptionKeys(MediaDecryptionRequest request) throws Exception {
-		final int numOfTries = 5;
+		int attempt = 0;
 		
-		for(int i = 0; i < numOfTries; ++i) {
+		do {
 			List<MediaDecryptionKey> keys = WV.decryptionKeys(request);
 			
 			if(keys != null && !keys.isEmpty()) {
 				return keys;
 			}
-		}
+		} while(++attempt <= keysMaxRetryAttempts);
 		
 		return null;
 	}

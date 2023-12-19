@@ -7,6 +7,14 @@
 				obtain_keys:   "Získání klíčů",
 				decrypt_video: "Dešifrování videa",
 				decrypt_audio: "Dešifrování audia"
+			},
+			configuration: {
+				group: {
+					general: "DRM"
+				},
+				fields: {
+					keysMaxRetryAttempts: "Maximální počet pokusů o opakování při získávání dešifrovacích klíčů"
+				}
 			}
 		}
 	}
