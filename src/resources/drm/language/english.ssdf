@@ -13,7 +13,8 @@
 					general: "DRM"
 				},
 				fields: {
-					keysMaxRetryAttempts: "Maximum number of retry attempts when obtaining decryption keys"
+					keysMaxRetryAttempts: "Maximum number of retry attempts when obtaining decryption keys",
+					waitOnRetryMs:        "On retry wait for milliseconds"
 				}
 			}
 		}

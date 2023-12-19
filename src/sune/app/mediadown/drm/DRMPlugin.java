@@ -22,6 +22,7 @@ public final class DRMPlugin extends PluginBase {
 	
 	// Default values of configuration properties
 	private static final int DEFAULT_KEYS_MAX_RETRY_ATTEMPTS = 5;
+	private static final int DEFAULT_WAIT_ON_RETRY_MS = 250;
 	
 	private String translatedTitle;
 	private PluginConfiguration.Builder configuration;
@@ -35,6 +36,10 @@ public final class DRMPlugin extends PluginBase {
 			.inGroup(group)
 			.withDefaultValue(DEFAULT_KEYS_MAX_RETRY_ATTEMPTS)
 			.withOrder(60));
+		builder.addProperty(ConfigurationProperty.ofInteger("waitOnRetryMs")
+			.inGroup(group)
+			.withDefaultValue(DEFAULT_WAIT_ON_RETRY_MS)
+			.withOrder(80));
 		
 		configuration = builder;
 	}

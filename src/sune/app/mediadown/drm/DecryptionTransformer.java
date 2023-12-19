@@ -102,10 +102,14 @@ public final class DecryptionTransformer implements Transformer {
 			return configuration().intValue("keysMaxRetryAttempts");
 		}
 		
+		private final int waitOnRetryMs() {
+			return configuration().intValue("waitOnRetryMs");
+		}
+		
 		@Override
 		public PipelineResult doRun(Pipeline pipeline) throws Exception {
 			decryptor = new Decryptor(
-				originalResult.output().media(), inputMedia(), inputPaths(), keysMaxRetryAttempts()
+				originalResult.output().media(), inputMedia(), inputPaths(), keysMaxRetryAttempts(), waitOnRetryMs()
 			);
 			bindAllDecryptionEvents(decryptor, pipeline.getEventRegistry()); // Bind all events from the pipeline
 			Ignore.Cancellation.callVoid(decryptor::start); // Wait for the decryption to finish

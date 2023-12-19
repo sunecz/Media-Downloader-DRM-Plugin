@@ -57,6 +57,7 @@ public final class Decryptor implements DecryptionContext {
 	private final List<Media> inputMedia;
 	private final List<Path> inputPaths;
 	private final int keysMaxRetryAttempts;
+	private final int waitOnRetryMs;
 	
 	private final InternalState state = new InternalState();
 	private final SyncObject lockPause = new SyncObject();
@@ -64,12 +65,30 @@ public final class Decryptor implements DecryptionContext {
 	private ReadOnlyProcess decryptProcess;
 	private Exception exception;
 	
-	public Decryptor(Media rootMedia, List<Media> inputMedia, List<Path> inputPaths, int keysMaxRetryAttempts) {
+	public Decryptor(Media rootMedia, List<Media> inputMedia, List<Path> inputPaths, int keysMaxRetryAttempts,
+			int waitOnRetryMs) {
 		this.rootMedia = Objects.requireNonNull(rootMedia);
 		this.inputMedia = Objects.requireNonNull(inputMedia);
 		this.inputPaths = Objects.requireNonNull(inputPaths);
-		this.keysMaxRetryAttempts = keysMaxRetryAttempts;
+		this.keysMaxRetryAttempts = checkKeysMaxRetryAttempts(keysMaxRetryAttempts);
+		this.waitOnRetryMs = checkWaitOnRetryMs(waitOnRetryMs);
 		trackerManager.tracker(new WaitTracker());
+	}
+	
+	private static final int checkKeysMaxRetryAttempts(int value) {
+		if(value < 0) {
+			throw new IllegalArgumentException("keysMaxRetryAttempts must be >= 0");
+		}
+		
+		return value;
+	}
+	
+	private static final int checkWaitOnRetryMs(int value) {
+		if(value < 0) {
+			throw new IllegalArgumentException("waitOnRetryMs must be >= 0");
+		}
+		
+		return value;
 	}
 	
 	private final boolean checkState() {
@@ -197,6 +216,11 @@ public final class Decryptor implements DecryptionContext {
 		}
 	}
 	
+	private final void waitRetry(int attempt) throws InterruptedException {
+		int waitMs = (int) (waitOnRetryMs * Math.pow(attempt, 4.0 / 3.0));
+		Thread.sleep(waitMs); // Simple wait
+	}
+	
 	private final List<MediaDecryptionKey> decryptionKeys(MediaDecryptionRequest request) throws Exception {
 		int attempt = 0;
 		
@@ -206,6 +230,8 @@ public final class Decryptor implements DecryptionContext {
 			if(keys != null && !keys.isEmpty()) {
 				return keys;
 			}
+			
+			waitRetry(attempt + 1); // Wait a little
 		} while(++attempt <= keysMaxRetryAttempts);
 		
 		return null;
