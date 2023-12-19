@@ -275,7 +275,21 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 				eventRegistry.call(DRMBootstrapEvent.RESOURCE_CHECK, new CheckEventContext<>(DRMBootstrap.this, name));
 			});
 			
-			updater.check();
+			if(updater.check()) {
+				// Make sure all the binaries are executable (Unix systems)
+				if(!OSUtils.isWindows()) {
+					String dirPath = "resources/binary/drm";
+					
+					List<String> binaries = List.of(
+						dirPath + "/wv",
+						dirPath + "/mp4decrypt"
+					);
+					
+					for(String path : binaries) {
+						NIO.chmod(NIO.localPath(path), 7, 7, 7);
+					}
+				}
+			}
 		}
 	}
 }
