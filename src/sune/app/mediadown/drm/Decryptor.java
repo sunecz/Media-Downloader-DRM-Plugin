@@ -149,7 +149,7 @@ public final class Decryptor implements DecryptionContext {
 		
 		for(int i = 0; i < numOfSegments; ++i) {
 			long downloaded = downloader.start(
-				Request.of(segments.get(i).uri()).GET(),
+				Request.of(segments.get(i).uri()).retry(10).GET(),
 				output,
 				DownloadConfiguration.ofRanges(new Range<>(offset, -1L), rangeAll)
 			);
