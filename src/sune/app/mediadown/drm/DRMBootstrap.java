@@ -133,11 +133,9 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		
 		doCleanup();
 		
-		if(MediaDownloader.AppArguments.isUpdateEnabled()) {
-			ResourceChecker checker = new ResourceChecker();
-			boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
-			checkRes(checker, currentDir, checkIntegrity);
-		}
+		ResourceChecker checker = new ResourceChecker();
+		boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
+		checkRes(checker, currentDir, checkIntegrity);
 	}
 	
 	public void error(Exception exception) {
