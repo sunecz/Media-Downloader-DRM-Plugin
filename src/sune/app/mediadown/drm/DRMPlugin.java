@@ -13,7 +13,7 @@ import sune.app.mediadown.transformer.Transformers;
 		author        = "Sune",
 		updateBaseURL = "https://app.sune.tech/mediadown/dat/plugin/0002/plugin/drm/",
 		updatable     = true,
-		url           = "https://suneweb.net/project/media-downloader/",
+		url           = "https://projects.suneweb.net/media-downloader/",
 		icon          = "resources/drm/icon/drm.png",
 		moduleName    = "sune.app.mediadown.drm")
 public final class DRMPlugin extends PluginBase {
