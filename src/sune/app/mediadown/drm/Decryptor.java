@@ -47,8 +47,8 @@ public final class Decryptor implements DecryptionContext {
 	
 	public Decryptor(List<ConversionMedia> conversionMedia, MediaDecryptionKey keyVideo, MediaDecryptionKey keyAudio) {
 		this.conversionMedia = Objects.requireNonNull(conversionMedia);
-		this.keyVideo = Objects.requireNonNull(keyVideo);
-		this.keyAudio = Objects.requireNonNull(keyAudio);
+		this.keyVideo = keyVideo;
+		this.keyAudio = keyAudio;
 	}
 	
 	private final boolean checkState() {

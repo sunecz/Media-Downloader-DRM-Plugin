@@ -2,19 +2,19 @@ package sune.app.mediadown.drm.util;
 
 public final class PSSH {
 	
-	private final String video;
-	private final String audio;
+	private final String content;
+	private final String keyId;
 	
-	public PSSH(String video, String audio) {
-		this.video = video;
-		this.audio = audio;
+	public PSSH(String content, String keyId) {
+		this.content = content;
+		this.keyId = keyId;
 	}
 	
-	public String video() {
-		return video;
+	public String content() {
+		return content;
 	}
 	
-	public String audio() {
-		return audio;
+	public String keyId() {
+		return keyId;
 	}
 }

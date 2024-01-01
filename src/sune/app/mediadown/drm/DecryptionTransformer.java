@@ -1,6 +1,6 @@
 package sune.app.mediadown.drm;
 
-import java.util.Objects;
+import java.util.function.Function;
 
 import sune.app.mediadown.drm.event.DecryptionEvent;
 import sune.app.mediadown.drm.util.MediaDecryptionKey;
@@ -20,10 +20,13 @@ import sune.app.mediadown.pipeline.PipelineMedia;
 import sune.app.mediadown.pipeline.PipelineResult;
 import sune.app.mediadown.pipeline.PipelineTask;
 import sune.app.mediadown.pipeline.PipelineTransformer;
+import sune.app.mediadown.pipeline.TerminatingPipelineResult;
+import sune.app.mediadown.pipeline.TerminatingPipelineTask;
 import sune.app.mediadown.plugin.PluginBase;
 import sune.app.mediadown.plugin.PluginConfiguration;
 import sune.app.mediadown.plugin.PluginLoaderContext;
 import sune.app.mediadown.transformer.Transformer;
+import sune.app.mediadown.util.CheckedConsumer;
 import sune.app.mediadown.util.Metadata;
 import sune.app.mediadown.util.Utils.Ignore;
 
@@ -96,16 +99,23 @@ public final class DecryptionTransformer implements Transformer {
 		private final Metadata metadata;
 		
 		public WrappedPipelineResult(PipelineResult originalResult, Metadata metadata) {
-			this.originalResult = Objects.requireNonNull(originalResult);
-			this.metadata = Objects.requireNonNull(metadata);
+			this.originalResult = originalResult;
+			this.metadata = metadata;
 		}
 		
 		@Override
 		public PipelineTask process(Pipeline pipeline) throws Exception {
+			if(originalResult == null) {
+				return TerminatingPipelineTask.getInstance();
+			}
+			
 			return new WrappedPipelineTask(originalResult.process(pipeline), metadata);
 		}
 		
-		@Override public boolean isTerminating() { return originalResult.isTerminating(); }
+		@Override
+		public boolean isTerminating() {
+			return originalResult == null || originalResult.isTerminating();
+		}
 	}
 	
 	private static class WrappedPipelineTask implements PipelineTask {
@@ -114,25 +124,41 @@ public final class DecryptionTransformer implements Transformer {
 		private final Metadata metadata;
 		
 		public WrappedPipelineTask(PipelineTask originalTask, Metadata metadata) {
-			this.originalTask = Objects.requireNonNull(originalTask);
-			this.metadata = Objects.requireNonNull(metadata);
+			this.originalTask = originalTask;
+			this.metadata = metadata;
+		}
+		
+		private final void doAction(CheckedConsumer<PipelineTask> action) throws Exception {
+			if(originalTask == null) {
+				return;
+			}
+			
+			action.accept(originalTask);
+		}
+		
+		private final <T> T doAction(Function<PipelineTask, T> action, T defaultValue) {
+			return originalTask == null ? defaultValue : action.apply(originalTask);
 		}
 		
 		@Override
 		public PipelineResult run(Pipeline pipeline) throws Exception {
+			if(originalTask == null) {
+				return TerminatingPipelineResult.getInstance();
+			}
+			
 			return new WrappedPipelineResult(originalTask.run(pipeline), metadata);
 		}
 		
-		@Override public void stop() throws Exception { originalTask.stop(); }
-		@Override public void pause() throws Exception { originalTask.pause(); }
-		@Override public void resume() throws Exception { originalTask.resume(); }
+		@Override public void stop() throws Exception { doAction(PipelineTask::stop); }
+		@Override public void pause() throws Exception { doAction(PipelineTask::pause); }
+		@Override public void resume() throws Exception { doAction(PipelineTask::resume); }
 		
-		@Override public boolean isRunning() { return originalTask.isRunning(); }
-		@Override public boolean isDone() { return originalTask.isDone(); }
-		@Override public boolean isStarted() { return originalTask.isStarted(); }
-		@Override public boolean isPaused() { return originalTask.isPaused(); }
-		@Override public boolean isStopped() { return originalTask.isStopped(); }
-		@Override public boolean isError() { return originalTask.isError(); }
+		@Override public boolean isRunning() { return doAction(PipelineTask::isRunning, false); }
+		@Override public boolean isDone() { return doAction(PipelineTask::isDone, false); }
+		@Override public boolean isStarted() { return doAction(PipelineTask::isStarted, false); }
+		@Override public boolean isPaused() { return doAction(PipelineTask::isPaused, false); }
+		@Override public boolean isStopped() { return doAction(PipelineTask::isStopped, false); }
+		@Override public boolean isError() { return doAction(PipelineTask::isError, false); }
 	}
 	
 	private static final class DecryptionKeyObtainPipelineTask extends AbstractPipelineTask {

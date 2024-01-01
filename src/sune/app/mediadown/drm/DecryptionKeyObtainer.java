@@ -107,11 +107,10 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		return state.is(TaskStates.RUNNING);
 	}
 	
-	private final String extractWidevinePSSH(List<MediaProtection> protections) {
+	private final MediaProtection extractWidevinePSSH(List<MediaProtection> protections) {
 		return protections.stream()
 					.filter((p) -> p.type() == MediaProtectionType.DRM_WIDEVINE)
 					.filter((p) -> p.contentType().equalsIgnoreCase("pssh"))
-					.map(MediaProtection::content)
 					.findFirst().orElse(null);
 	}
 	
@@ -121,19 +120,18 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 					.findFirst().orElse(null);
 	}
 	
-	private final PSSH extractPSSH(Media video, Media audio) throws Exception {
-		String valueVideo = null;
-		String valueAudio = null;
-		
-		if(video != null) {
-			valueVideo = extractWidevinePSSH(video.metadata().protections());
+	private final PSSH extractPSSH(Media media) {
+		if(media == null) {
+			return null;
 		}
 		
-		if(audio != null) {
-			valueAudio = extractWidevinePSSH(audio.metadata().protections());
+		MediaProtection protection = extractWidevinePSSH(media.metadata().protections());
+		
+		if(protection == null) {
+			return null;
 		}
 		
-		return new PSSH(valueVideo, valueAudio);
+		return new PSSH(protection.content(), protection.keyId());
 	}
 	
 	private final Path downloadTestSegments(FileDownloader downloader, Path output, List<? extends FileSegment> segments,
@@ -191,10 +189,20 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 	}
 	
 	private final MediaDecryptionKey correctDecryptionKey(FileDownloader downloader, Path output,
-			List<? extends FileSegment> segments, List<MediaDecryptionKey> keys) throws Exception {
+			List<? extends FileSegment> segments, List<MediaDecryptionKey> keys, String keyId) throws Exception {
 		if(keys == null || keys.isEmpty()) {
 			// Null indicates failure
 			return null;
+		}
+		
+		if(keyId != null && !keyId.isEmpty()) {
+			MediaDecryptionKey key = keys.stream()
+				.filter((k) -> k.kid().equals(keyId))
+				.findFirst().orElse(null);
+			
+			if(key != null) {
+				return key;
+			}
 		}
 		
 		int numOfSegments = 2; // Must be at least 2 (init + 1 content segment)
@@ -253,39 +261,12 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		eventRegistry.call(DecryptionEvent.BEGIN, this);
 		
 		try {
-			if(media.format() != MediaFormat.DASH) {
-				throw new IllegalArgumentException("Only DASH is supported so far");
+			if(!media.format().isAnyOf(MediaFormat.DASH, MediaFormat.M3U8)) {
+				throw new IllegalArgumentException("Only DASH and M3U8 formats are supported");
 			}
 			
 			if(!media.metadata().isProtected()) {
 				throw new IllegalArgumentException("Media not protected");
-			}
-			
-			List<Media> inputMedia = segmentedMedia(media);
-			Media video = protectedMediaOfType(inputMedia, MediaType.VIDEO);
-			Media audio = protectedMediaOfType(inputMedia, MediaType.AUDIO);
-			
-			List<? extends FileSegment> segmentsVideo = null;
-			List<? extends FileSegment> segmentsAudio = null;
-			Path pathVideo = null;
-			Path pathAudio = null;
-			
-			if(video != null) {
-				pathVideo = destination.resolveSibling(destination.getFileName() + ".video.seg");
-				segmentsVideo = ((SegmentedMedia) video).segments().segments();
-			}
-			
-			if(audio != null) {
-				pathAudio = destination.resolveSibling(destination.getFileName() + ".audio.seg");
-				segmentsAudio = ((SegmentedMedia) audio).segments().segments();
-			}
-			
-			if(pathVideo == null || pathAudio == null) {
-				throw new IllegalStateException("Both video and audio must be available");
-			}
-			
-			if(segmentsVideo == null || segmentsAudio == null) {
-				throw new IllegalStateException("Both video and audio must be segmented");
 			}
 			
 			DRMEngine engine = DRMEngines.fromURI(media.metadata().sourceURI());
@@ -294,13 +275,47 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				throw new IllegalStateException("DRM engine not found");
 			}
 			
+			List<Media> inputMedia = segmentedMedia(media);
+			Media video = null;
+			Media audio = null;
+			
+			video = protectedMediaOfType(inputMedia, MediaType.VIDEO);
+			
+			if(video == null) {
+				throw new IllegalStateException("Video must be present");
+			}
+			
+			List<? extends FileSegment> segmentsVideo = null;
+			List<? extends FileSegment> segmentsAudio = null;
+			Path pathVideo = null;
+			Path pathAudio = null;
+			
+			pathVideo = destination.resolveSibling(destination.getFileName() + ".video.seg");
+			segmentsVideo = ((SegmentedMedia) video).segments().segments();
+			
+			if(segmentsVideo == null) {
+				throw new IllegalStateException("Video must be segmented");
+			}
+			
+			audio = protectedMediaOfType(inputMedia, MediaType.AUDIO);
+			
+			if(audio != null && audio.isPhysical()) {
+				pathAudio = destination.resolveSibling(destination.getFileName() + ".audio.seg");
+				segmentsAudio = ((SegmentedMedia) audio).segments().segments();
+				
+				if(segmentsAudio == null) {
+					throw new IllegalStateException("Audio must be segmented");
+				}
+			}
+			
 			if(!checkState()) return;
 			
 			DecryptionProcessTracker decryptTracker = new DecryptionProcessTracker();
 			trackerManager.tracker(decryptTracker);
 			
 			decryptTracker.state(DecryptionProcessState.EXTRACT_PSSH);
-			PSSH pssh = extractPSSH(video, audio);
+			PSSH psshVideo = extractPSSH(video);
+			PSSH psshAudio = extractPSSH(audio);
 			
 			if(!checkState()) return;
 			
@@ -321,12 +336,11 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			
 			MediaDecryptionKey keyVideo = null;
 			MediaDecryptionKey keyAudio = null;
-			String psshValue;
 			
-			if((psshValue = pssh.video()) != null) {
-				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
+			if(psshVideo != null) {
+				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshVideo.content(), request);
 				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
-				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys);
+				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys, psshVideo.keyId());
 				
 				if(keyVideo == null) {
 					throw new IllegalStateException("Decryption key for video not found");
@@ -335,10 +349,10 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				if(!checkState()) return;
 			}
 			
-			if((psshValue = pssh.audio()) != null) {
-				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshValue, request);
+			if(psshAudio != null) {
+				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshAudio.content(), request);
 				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
-				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys);
+				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys, psshAudio.keyId());
 				
 				if(keyAudio == null) {
 					throw new IllegalStateException("Decryption key for audio not found");
