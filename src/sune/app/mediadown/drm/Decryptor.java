@@ -78,8 +78,20 @@ public final class Decryptor implements DecryptionContext {
 		Path tempOutput = tempInput.resolveSibling(tempInput.getFileName() + ".decrypted");
 		NIO.move(input, tempInput);
 		
-		decryptProcess = MP4Decrypt.execute(tempInput, tempOutput, key);
-		int retval = decryptProcess.waitFor();
+		int retval = -1;
+		try {
+			decryptProcess = MP4Decrypt.execute(tempInput, tempOutput, key);
+			retval = decryptProcess.waitFor();
+		} catch(IOException ex) {
+			// Temporary fix: Ignore the IOException that is thrown when the reader
+			// of the process is forcibly closed.
+			String message = ex.getMessage();
+			
+			if(message == null
+					|| !message.equals("Stream closed")) {
+				throw ex; // Propagate
+			}
+		}
 		
 		if(retval != 0) {
 			throw new IllegalStateException("Decryption eneded unsucessfully");

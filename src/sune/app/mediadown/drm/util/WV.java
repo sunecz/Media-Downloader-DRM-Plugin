@@ -1,5 +1,6 @@
 package sune.app.mediadown.drm.util;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,6 +79,15 @@ public final class WV {
 			
 			process.execute(command);
 			process.waitFor();
+		} catch(IOException ex) {
+			// Temporary fix: Ignore the IOException that is thrown when the reader
+			// of the process is forcibly closed.
+			String message = ex.getMessage();
+			
+			if(message == null
+					|| !message.equals("Stream closed")) {
+				throw ex; // Propagate
+			}
 		}
 		
 		return parser.decryptionKeys();

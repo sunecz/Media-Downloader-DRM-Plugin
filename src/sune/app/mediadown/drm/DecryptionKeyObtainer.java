@@ -1,5 +1,6 @@
 package sune.app.mediadown.drm;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
@@ -168,17 +169,28 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				// is not the correct one and the FFmpeg will return a non-zero exit code, otherwise
 				// the key is correct and we can return it. Note that this method returns just one
 				// key, so media with multiple decryption keys are not supported.
+				int retval = -1;
+				
 				try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess((l) -> {})) {
 					ConversionCommand command = builder
 						.addOptions(Option.ofShort("decryption_key", key.key()))
 						.build();
 					
 					process.execute(command.toString());
-					int retval = process.waitFor();
+					retval = process.waitFor();
+				} catch(IOException ex) {
+					// Temporary fix: Ignore the IOException that is thrown when the reader
+					// of the process is forcibly closed.
+					String message = ex.getMessage();
 					
-					if(retval == 0) {
-						return key;
+					if(message == null
+							|| !message.equals("Stream closed")) {
+						throw ex; // Propagate
 					}
+				}
+				
+				if(retval == 0) {
+					return key;
 				}
 			}
 			
