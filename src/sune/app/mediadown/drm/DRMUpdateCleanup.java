@@ -12,8 +12,6 @@ import sune.app.mediadown.util.NIO;
  */
 public final class DRMUpdateCleanup {
 	
-	private static final CleanupJob[] jobs = { V2.instance() };
-	
 	// Forbid anyone to create an instance of this class
 	private DRMUpdateCleanup() {
 	}
@@ -23,7 +21,7 @@ public final class DRMUpdateCleanup {
 			return; // Nothing to do
 		}
 		
-		for(CleanupJob job : jobs) {
+		for(CleanupJob job : List.of(V2.instance())) {
 			if(!job.canApply(current, previous)) {
 				continue;
 			}
