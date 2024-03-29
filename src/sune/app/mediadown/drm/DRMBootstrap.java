@@ -41,7 +41,7 @@ import sune.app.mediadown.util.PathSystem;
 
 public final class DRMBootstrap implements EventBindable<EventType> {
 	
-	private final String versionRes = "0007";
+	private final String versionRes = "0008";
 	
 	private final boolean generateHashLists;
 	
