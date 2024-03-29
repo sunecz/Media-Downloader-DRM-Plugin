@@ -5,5 +5,5 @@ import sune.app.mediadown.net.Web.Request;
 
 public interface DRMResolver {
 	
-	Request createRequest(Media media);
+	Request createRequest(Media media, byte[] licenseRequest);
 }

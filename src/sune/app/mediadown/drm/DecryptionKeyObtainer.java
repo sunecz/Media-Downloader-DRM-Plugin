@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.InternalState;
@@ -21,9 +22,10 @@ import sune.app.mediadown.drm.event.DecryptionEvent;
 import sune.app.mediadown.drm.tracker.DecryptionProcessState;
 import sune.app.mediadown.drm.tracker.DecryptionProcessTracker;
 import sune.app.mediadown.drm.util.MediaDecryptionKey;
-import sune.app.mediadown.drm.util.MediaDecryptionRequest;
 import sune.app.mediadown.drm.util.PSSH;
 import sune.app.mediadown.drm.util.WV;
+import sune.app.mediadown.drm.util.WV.API.LicenseKey;
+import sune.app.mediadown.drm.util.WV.API.LicenseRequest;
 import sune.app.mediadown.event.Event;
 import sune.app.mediadown.event.EventRegistry;
 import sune.app.mediadown.event.EventType;
@@ -39,7 +41,9 @@ import sune.app.mediadown.media.MediaProtectionType;
 import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.media.MediaUtils;
 import sune.app.mediadown.media.SegmentedMedia;
+import sune.app.mediadown.net.Web;
 import sune.app.mediadown.net.Web.Request;
+import sune.app.mediadown.net.Web.Response;
 import sune.app.mediadown.util.Metadata;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.Opt.OptCondition;
@@ -235,11 +239,45 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		Thread.sleep(waitMs); // Simple wait
 	}
 	
-	private final List<MediaDecryptionKey> decryptionKeys(MediaDecryptionRequest request) throws Exception {
+	private final List<MediaDecryptionKey> obtainDecryptionKeys(DRMResolver resolver, Media media, String pssh)
+			throws Exception {
+		LicenseRequest licenseRequest = WV.API.generateLicenseRequest(pssh);
+		
+		if(!licenseRequest.isValid()) {
+			throw new IllegalStateException("Invalid license request");
+		}
+		
+		Request request = resolver.createRequest(media, licenseRequest.request());
+		
+		if(request == null) {
+			throw new IllegalStateException("DRM request cannot be null");
+		}
+		
+		List<LicenseKey> licenseKeys;
+		try(Response.OfStream licenseResponse = Web.requestStream(request)) {
+			licenseKeys = WV.API.extractLicenseKeys(
+				licenseRequest.id(),
+				licenseResponse.stream().readAllBytes()
+			);
+		}
+		
+		if(licenseKeys == null || licenseKeys.isEmpty()) {
+			// Do not throw an exception here, but allow a retry.
+			return null;
+		}
+		
+		return licenseKeys.stream()
+			.filter((k) -> k.type().equals("CONTENT"))
+			.map((k) -> new MediaDecryptionKey(k.kid(), k.key()))
+			.collect(Collectors.toList());
+	}
+	
+	private final List<MediaDecryptionKey> decryptionKeys(DRMResolver resolver, Media media, String pssh)
+			throws Exception {
 		int attempt = 0;
 		
 		do {
-			List<MediaDecryptionKey> keys = WV.decryptionKeys(request);
+			List<MediaDecryptionKey> keys = obtainDecryptionKeys(resolver, media, pssh);
 			
 			if(keys != null && !keys.isEmpty()) {
 				return keys;
@@ -338,20 +376,13 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				throw new IllegalStateException("Invalid DRM resolver");
 			}
 			
-			Request request = resolver.createRequest(media);
-			
-			if(request == null) {
-				throw new IllegalStateException("Request cannot be null");
-			}
-			
 			FileDownloader fileDownloader = new FileDownloader(new TrackerManager());
 			
 			MediaDecryptionKey keyVideo = null;
 			MediaDecryptionKey keyAudio = null;
 			
 			if(psshVideo != null) {
-				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshVideo.content(), request);
-				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
+				List<MediaDecryptionKey> keys = decryptionKeys(resolver, video, psshVideo.content());
 				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys, psshVideo.keyId());
 				
 				if(keyVideo == null) {
@@ -362,8 +393,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			}
 			
 			if(psshAudio != null) {
-				MediaDecryptionRequest decryptRequest = new MediaDecryptionRequest(psshAudio.content(), request);
-				List<MediaDecryptionKey> keys = decryptionKeys(decryptRequest);
+				List<MediaDecryptionKey> keys = decryptionKeys(resolver, audio, psshAudio.content());
 				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys, psshAudio.keyId());
 				
 				if(keyAudio == null) {

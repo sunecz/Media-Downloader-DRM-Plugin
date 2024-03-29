@@ -1,20 +1,18 @@
 package sune.app.mediadown.drm.util;
 
-import java.io.IOException;
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map.Entry;
-import java.util.function.Consumer;
-import java.util.regex.Matcher;
+import java.util.Objects;
 
-import sune.api.process.Processes;
-import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.net.Net;
+import sune.app.mediadown.net.Web;
 import sune.app.mediadown.net.Web.Request;
+import sune.app.mediadown.net.Web.Response;
+import sune.app.mediadown.util.JSON;
 import sune.app.mediadown.util.JSON.JSONCollection;
-import sune.app.mediadown.util.NIO;
-import sune.app.mediadown.util.OSUtils;
-import sune.app.mediadown.util.Regex;
+import sune.app.mediadown.util.JSON.JSONObject;
 import sune.app.mediadown.util.Utils;
 
 /**
@@ -24,95 +22,100 @@ import sune.app.mediadown.util.Utils;
  */
 public final class WV {
 	
-	private static Path path;
-	
 	// Forbid anyone to create an instance of this class
 	private WV() {
 	}
 	
-	private static final Path ensureBinary() {
-		if(path == null) {
-			path = NIO.localPath("resources/binary/drm", OSUtils.getExecutableName("wv"));
-			
-			if(!NIO.isRegularFile(path)) {
-				throw new IllegalStateException("WV utility was not found at " + path.toAbsolutePath().toString());
+	public static final class API {
+		
+		private static final URI URI_API = Net.uri("https://md.sune.app/api/wv/v1/");
+		
+		private API() {
+		}
+		
+		private static final JSONCollection request(String path, JSONCollection body) throws Exception {
+			try(Response.OfStream response = Web.requestStream(
+					Request.of(URI_API.resolve(path))
+						.POST(body.toString(true), "application/json")
+			)) {
+				return JSON.read(response.stream());
 			}
 		}
 		
-		return path;
-	}
-	
-	public static final Path path() {
-		return ensureBinary();
-	}
-	
-	public static final ReadOnlyProcess createSynchronousProcess() {
-		return Processes.createSynchronous(path());
-	}
-	
-	public static final ReadOnlyProcess createAsynchronousProcess(Consumer<String> listener) {
-		return Processes.createAsynchronous(path(), listener);
-	}
-	
-	public static final List<MediaDecryptionKey> decryptionKeys(MediaDecryptionRequest request) throws Exception {
-		MediaDecryptionKeysParser parser = new MediaDecryptionKeysParser();
-		
-		try(ReadOnlyProcess process = createAsynchronousProcess(parser)) {
-			Request req = request.request();
+		public static final LicenseRequest generateLicenseRequest(String pssh) throws Exception {
+			JSONCollection response = request(
+				"generate",
+				JSONCollection.ofObject(
+					"pssh", JSONObject.ofString(pssh)
+				)
+			);
 			
-			JSONCollection headers = JSONCollection.empty();
-			headers.set("User-Agent", req.userAgent());
-			headers.set("Pragma", "no-cache");
-			headers.set("Cache-Control", "no-cache");
+			String id = response.getString("id");
+			byte[] request = Utils.base64DecodeRaw(response.getString("request"));
 			
-			for(Entry<String, List<String>> entry : req.headers().entrySet()) {
-				headers.set(entry.getKey(), entry.getValue().get(0));
-			}
-			
-			JSONCollection args = JSONCollection.empty();
-			args.set("licenseUrl", req.uri().toString());
-			args.set("pssh", request.pssh());
-			args.set("headers", headers);
-			
-			String encoded = Utils.base64Encode(args.toString(true));
-			String command = encoded;
-			
-			process.execute(command);
-			process.waitFor();
-		} catch(IOException ex) {
-			// Temporary fix: Ignore the IOException that is thrown when the reader
-			// of the process is forcibly closed.
-			String message = ex.getMessage();
-			
-			if(message == null
-					|| !message.equals("Stream closed")) {
-				throw ex; // Propagate
-			}
+			return new LicenseRequest(id, request);
 		}
 		
-		return parser.decryptionKeys();
-	}
-	
-	private static final class MediaDecryptionKeysParser implements Consumer<String> {
-		
-		private static final Regex regex = Regex.of("^CONTENT:(?<kid>[^:]+):(?<key>[^:]+)$");
-		
-		private final List<MediaDecryptionKey> decryptionKeys = new ArrayList<>();
-		
-		@Override
-		public void accept(String line) {
-			Matcher matcher;
-			if(line == null || !(matcher = regex.matcher(line)).matches()) {
-				return;
+		public static final List<LicenseKey> extractLicenseKeys(String licenseId, byte[] licenseResponse)
+				throws Exception {
+			JSONCollection response = request(
+				"extract",
+				JSONCollection.ofObject(
+					"id", JSONObject.ofString(licenseId),
+					"response", JSONObject.ofString(Utils.base64EncodeRawAsString(licenseResponse))
+				)
+			);
+			
+			JSONCollection rawKeys = response.getCollection("keys");
+			int length;
+			
+			if(rawKeys == null || (length = rawKeys.length()) == 0) {
+				return List.of();
 			}
 			
-			String kid = matcher.group("kid");
-			String key = matcher.group("key");
-			decryptionKeys.add(new MediaDecryptionKey(kid, key));
+			List<LicenseKey> keys = new ArrayList<>(length);
+			
+			for(JSONCollection item : rawKeys.collectionsIterable()) {
+				keys.add(new LicenseKey(
+					item.getString("type"),
+					item.getString("kid"),
+					item.getString("key")
+				));
+			}
+			
+			return Collections.unmodifiableList(keys);
 		}
 		
-		public List<MediaDecryptionKey> decryptionKeys() {
-			return decryptionKeys;
+		public static final class LicenseRequest {
+			
+			private final String id;
+			private final byte[] request;
+			
+			private LicenseRequest(String id, byte[] request) {
+				this.id = Objects.requireNonNull(id);
+				this.request = Objects.requireNonNull(request);
+			}
+			
+			public boolean isValid() { return id != null && request != null; }
+			public String id() { return id; }
+			public byte[] request() { return request; }
+		}
+		
+		public static final class LicenseKey {
+			
+			private final String type;
+			private final String kid;
+			private final String key;
+			
+			private LicenseKey(String type, String kid, String key) {
+				this.type = Objects.requireNonNull(type);
+				this.kid = Objects.requireNonNull(kid);
+				this.key = Objects.requireNonNull(key);
+			}
+			
+			public String type() { return type; }
+			public String kid() { return kid; }
+			public String key() { return key; }
 		}
 	}
 }
