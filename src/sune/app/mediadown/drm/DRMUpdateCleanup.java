@@ -5,6 +5,7 @@ import java.util.List;
 
 import sune.app.mediadown.update.Version;
 import sune.app.mediadown.util.NIO;
+import sune.app.mediadown.util.OSUtils;
 
 /**
  * Used for cleaning up files and directories when the plugin is updated.
@@ -21,7 +22,7 @@ public final class DRMUpdateCleanup {
 			return; // Nothing to do
 		}
 		
-		for(CleanupJob job : List.of(V2.instance())) {
+		for(CleanupJob job : List.of(new V2(), new V3())) {
 			if(!job.canApply(current, previous)) {
 				continue;
 			}
@@ -36,22 +37,69 @@ public final class DRMUpdateCleanup {
 		boolean canApply(Version current, Version previous);
 	}
 	
-	private static final class V2 implements CleanupJob {
+	private static abstract class DefaultCleanupJob implements CleanupJob {
 		
-		private static V2 instance;
+		protected DefaultCleanupJob() {}
 		
-		private final Version minVersion = Version.ZERO;
-		private final Version maxVersion = Version.of("00.02.09-0001");
+		protected abstract Version minVersion();
+		protected abstract Version maxVersion();
 		
-		private V2() {}
+		protected List<List<String>> filesToRemove() { return List.of(); }
+		protected List<String> maybeEmptyDirs() { return List.of(); }
 		
-		public static final V2 instance() {
-			if(instance == null) {
-				instance = new V2();
+		@Override
+		public void cleanup() throws Exception {
+			for(List<String> files : filesToRemove()) {
+				for(String path : files) {
+					NIO.delete(NIO.localPath(path));
+				}
 			}
 			
-			return instance;
+			for(String dirPath : maybeEmptyDirs()) {
+				Path path = NIO.localPath(dirPath);
+				
+				if(!NIO.exists(path) || !NIO.isEmptyDirectory(path)) {
+					continue;
+				}
+				
+				NIO.deleteDir(path);
+			}
 		}
+		
+		@Override
+		public boolean canApply(Version current, Version previous) {
+			return previous == Version.UNKNOWN
+						|| (previous.compareTo(minVersion()) >= 0 && previous.compareTo(maxVersion()) <= 0);
+		}
+	}
+	
+	private static final class V3 extends DefaultCleanupJob {
+		
+		@Override protected Version minVersion() { return Version.ZERO; }
+		@Override protected Version maxVersion() { return Version.of("00.02.09-0015"); }
+		
+		private V3() {}
+		
+		private final List<String> resources() {
+			return List.of(
+				OSUtils.getExecutableName("resources/binary/drm/wv")
+			);
+		}
+		
+		@Override
+		protected List<List<String>> filesToRemove() {
+			return List.of(
+				resources()
+			);
+		}
+	}
+	
+	private static final class V2 extends DefaultCleanupJob {
+		
+		@Override protected Version minVersion() { return Version.ZERO; }
+		@Override protected Version maxVersion() { return Version.of("00.02.09-0001"); }
+		
+		private V2() {}
 		
 		private final List<String> libraries() {
 			return List.of(
@@ -192,7 +240,15 @@ public final class DRMUpdateCleanup {
 			);
 		}
 		
-		private final List<String> maybeEmptyDirs() {
+		@Override
+		protected List<List<String>> filesToRemove() {
+			return List.of(
+				libraries(), resources(), cef(), other()
+			);
+		}
+		
+		@Override
+		protected final List<String> maybeEmptyDirs() {
 			return List.of(
 				"resources/drm",
 				"resources/binary/drm",
@@ -202,35 +258,6 @@ public final class DRMUpdateCleanup {
 				"lib/drm/proxy",
 				"lib/drm"
 			);
-		}
-		
-		@Override
-		public void cleanup() throws Exception {
-			List<List<String>> filesToRemove = List.of(
-				libraries(), resources(), cef(), other()
-			);
-			
-			for(List<String> files : filesToRemove) {
-				for(String path : files) {
-					NIO.delete(NIO.localPath(path));
-				}
-			}
-			
-			for(String dirPath : maybeEmptyDirs()) {
-				Path path = NIO.localPath(dirPath);
-				
-				if(!NIO.exists(path) || !NIO.isEmptyDirectory(path)) {
-					continue;
-				}
-				
-				NIO.deleteDir(path);
-			}
-		}
-		
-		@Override
-		public boolean canApply(Version current, Version previous) {
-			return previous == Version.UNKNOWN
-						|| (previous.compareTo(minVersion) >= 0 && previous.compareTo(maxVersion) <= 0);
 		}
 	}
 }
