@@ -28,7 +28,7 @@ public final class WV {
 	
 	public static final class API {
 		
-		private static final URI URI_API = Net.uri("https://md.sune.app/api/wv/v1/");
+		private static final URI URI_API = Net.uri("https://wv.api.md.sune.app/v1/");
 		
 		private API() {
 		}
