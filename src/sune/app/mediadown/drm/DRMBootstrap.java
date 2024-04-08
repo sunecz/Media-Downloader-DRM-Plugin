@@ -38,6 +38,7 @@ import sune.app.mediadown.update.Version;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.PathSystem;
+import sune.app.mediadown.util.Utils.Ignore;
 
 public final class DRMBootstrap implements EventBindable<EventType> {
 	
@@ -135,7 +136,10 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 		
 		ResourceChecker checker = new ResourceChecker();
 		boolean checkIntegrity = MediaDownloader.configuration().isCheckResourcesIntegrity();
-		checkRes(checker, currentDir, checkIntegrity);
+		Ignore.callVoid(
+			() -> checkRes(checker, currentDir, checkIntegrity),
+			MediaDownloader::errorDebug
+		);
 	}
 	
 	public void error(Exception exception) {
