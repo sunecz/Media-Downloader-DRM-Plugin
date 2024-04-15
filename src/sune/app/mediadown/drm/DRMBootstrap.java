@@ -280,15 +280,14 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			if(updater.check()) {
 				// Make sure all the binaries are executable (Unix systems)
 				if(!OSUtils.isWindows()) {
-					String dirPath = "resources/binary/drm";
+					Path dirPath = NIO.localPath("resources/binary/drm/");
 					
-					List<String> binaries = List.of(
-						dirPath + "/wv",
-						dirPath + "/mp4decrypt"
+					List<Path> binaries = List.of(
+						dirPath.resolve(OSUtils.getExecutableName("mp4decrypt"))
 					);
 					
-					for(String path : binaries) {
-						NIO.chmod(NIO.localPath(path), 7, 7, 7);
+					for(Path path : binaries) {
+						NIO.chmod(path, 7, 7, 7);
 					}
 				}
 			}
