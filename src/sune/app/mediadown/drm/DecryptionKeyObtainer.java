@@ -156,6 +156,13 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		return output;
 	}
 	
+	private static final FFmpeg.Command.Builder copyCommandBuilder(
+			ConversionCommand.Builder builder
+	) {
+		// Workaround since there is currently no FFmpeg.Command.Builder::copy method
+		return FFmpeg.Command.builder((FFmpeg.Command) builder.build());
+	}
+	
 	private final MediaDecryptionKey filterDecryptionKey(Path input, List<MediaDecryptionKey> keys)
 			throws Exception {
 		Metadata metadataInput = Metadata.of("noExplicitFormat", true);
@@ -176,7 +183,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				int retval = -1;
 				
 				try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess((l) -> {})) {
-					ConversionCommand command = builder
+					ConversionCommand command = copyCommandBuilder(builder)
 						.addOptions(Option.ofShort("decryption_key", key.key()))
 						.build();
 					
@@ -211,7 +218,9 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			return null;
 		}
 		
-		if(keyId != null && !keyId.isEmpty()) {
+		boolean isKeyIdPresent = keyId != null && !keyId.isEmpty();
+		
+		if(isKeyIdPresent) {
 			MediaDecryptionKey key = keys.stream()
 				.filter((k) -> k.kid().equals(keyId))
 				.findFirst().orElse(null);
@@ -226,7 +235,14 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		
 		try {
 			tempOutput = downloadTestSegments(downloader, output, segments, numOfSegments);
-			return filterDecryptionKey(tempOutput, keys);
+			MediaDecryptionKey foundKey = filterDecryptionKey(tempOutput, keys);
+			
+			if(foundKey == null || isKeyIdPresent) {
+				return foundKey;
+			}
+			
+			// If no KID is present, default to the first stream
+			return new MediaDecryptionKey("1", foundKey.key());
 		} finally {
 			if(tempOutput != null) {
 				NIO.delete(tempOutput);
