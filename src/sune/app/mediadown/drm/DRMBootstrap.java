@@ -199,32 +199,32 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 			NIO.deleteFile(destination);
 			NIO.createDir(destination.getParent());
 			
-			FileDownloader downloader = new FileDownloader(manager);
-			
-			if(useCompressedStreams) {
-				downloader.setResponseStreamFactory(InputStreamFactory.GZIP.ofDefault());
+			try(FileDownloader downloader = new FileDownloader(manager)) {
+				if(useCompressedStreams) {
+					downloader.setResponseStreamFactory(InputStreamFactory.GZIP.ofDefault());
+				}
+				
+				DownloadTracker tracker = new DownloadTracker();
+				downloader.setTracker(tracker);
+				
+				DownloadEventContext<DRMBootstrap> context
+					= new DownloadEventContext<>(DRMBootstrap.this, uri, destination, tracker);
+				
+				downloader.addEventListener(DownloadEvent.BEGIN, (d) -> {
+					eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, context);
+				});
+				
+				downloader.addEventListener(DownloadEvent.UPDATE, (pair) -> {
+					eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, context);
+				});
+				
+				downloader.addEventListener(DownloadEvent.END, (d) -> {
+					eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
+				});
+				
+				Request request = Request.of(uri).GET();
+				downloader.start(request, destination, DownloadConfiguration.ofDefault());
 			}
-			
-			DownloadTracker tracker = new DownloadTracker();
-			downloader.setTracker(tracker);
-			
-			DownloadEventContext<DRMBootstrap> context
-				= new DownloadEventContext<>(DRMBootstrap.this, uri, destination, tracker);
-			
-			downloader.addEventListener(DownloadEvent.BEGIN, (d) -> {
-				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_BEGIN, context);
-			});
-			
-			downloader.addEventListener(DownloadEvent.UPDATE, (pair) -> {
-				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_UPDATE, context);
-			});
-			
-			downloader.addEventListener(DownloadEvent.END, (d) -> {
-				eventRegistry.call(DRMBootstrapEvent.RESOURCE_DOWNLOAD_END, context);
-			});
-			
-			Request request = Request.of(uri).GET();
-			downloader.start(request, destination, DownloadConfiguration.ofDefault());
 			
 			return destination;
 		}
