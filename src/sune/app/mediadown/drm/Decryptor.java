@@ -27,7 +27,6 @@ import sune.app.mediadown.event.tracker.WaitTracker;
 import sune.app.mediadown.media.MediaType;
 import sune.app.mediadown.util.CheckedConsumer;
 import sune.app.mediadown.util.NIO;
-import sune.app.mediadown.util.OSUtils;
 import sune.app.mediadown.util.ProcessUtils;
 import sune.app.mediadown.util.Utils;
 import sune.app.mediadown.util.Utils.Ignore;
@@ -76,21 +75,19 @@ public final class Decryptor implements DecryptionContext {
 	private final void safeMove(Path src, Path dst) throws IOException {
 		NIO.move(src, dst);
 		
-		if(OSUtils.isWindows()) {
-			// Ugly hack but it is necessary. The reason behind having to do this is that
-			// the Files::move method (that is used by NIO::move) does not properly closes
-			// file handles of the files given by the input paths (src, dst). Since it
-			// delegates to the native code and to the Windows API it is actually the OS
-			// that holds on those file handles.
-			// Since there are no exposed file handles in the Java code and the internal
-			// classes does not use any handles explicitly, we cannot even use Java's
-			// Reflection to hack it sucessfully.
-			// This is the last resort and the only one that works consistently.
-			System.gc();
-			
-			// Wait a little to be more sure that the handles are closed by the OS.
-			Ignore.callVoid(() -> Thread.sleep(100));
-		}
+		// Ugly hack but it is necessary. The reason behind having to do this is that
+		// the Files::move method (that is used by NIO::move) does not properly closes
+		// file handles of the files given by the input paths (src, dst). Since it
+		// delegates to the native code and to the Windows API it is actually the OS
+		// that holds on those file handles.
+		// Since there are no exposed file handles in the Java code and the internal
+		// classes does not use any handles explicitly, we cannot even use Java's
+		// Reflection to hack it sucessfully.
+		// This is the last resort and the only one that works consistently.
+		System.gc();
+		
+		// Wait a little to be more sure that the handles are closed by the OS.
+		Ignore.callVoid(() -> Thread.sleep(100));
 	}
 	
 	private final void decrypt(Path input, MediaDecryptionKey key) throws Exception {
