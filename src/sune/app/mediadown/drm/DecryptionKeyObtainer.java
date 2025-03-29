@@ -171,7 +171,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		ConversionCommand.Builder builder = FFmpeg.Command.builder()
 			.addInputs(Input.of(input, MediaFormat.MP4, metadataInput))
 			.addOutputs(Output.of(output, MediaFormat.MP4))
-			.addOptions(FFmpeg.Options.yes());
+			.addOptions(FFmpeg.Options.yes(), FFmpeg.Options.hideBanner());
 		
 		try {
 			for(MediaDecryptionKey key : keys) {
@@ -211,7 +211,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		}
 	}
 	
-	private final MediaDecryptionKey correctDecryptionKey(FileDownloader downloader, Path output,
+	private final MediaDecryptionKey correctDecryptionKey(Path output,
 			List<? extends FileSegment> segments, List<MediaDecryptionKey> keys, String keyId) throws Exception {
 		if(keys == null || keys.isEmpty()) {
 			// Null indicates failure
@@ -233,7 +233,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		int numOfSegments = 2; // Must be at least 2 (init + 1 content segment)
 		Path tempOutput = null;
 		
-		try {
+		try(FileDownloader downloader = new FileDownloader(new TrackerManager())) {
 			tempOutput = downloadTestSegments(downloader, output, segments, numOfSegments);
 			MediaDecryptionKey foundKey = filterDecryptionKey(tempOutput, keys);
 			
@@ -392,14 +392,12 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				throw new IllegalStateException("Invalid DRM resolver");
 			}
 			
-			FileDownloader fileDownloader = new FileDownloader(new TrackerManager());
-			
 			MediaDecryptionKey keyVideo = null;
 			MediaDecryptionKey keyAudio = null;
 			
 			if(psshVideo != null) {
 				List<MediaDecryptionKey> keys = decryptionKeys(resolver, video, psshVideo.content());
-				keyVideo = correctDecryptionKey(fileDownloader, pathVideo, segmentsVideo, keys, psshVideo.keyId());
+				keyVideo = correctDecryptionKey(pathVideo, segmentsVideo, keys, psshVideo.keyId());
 				
 				if(keyVideo == null) {
 					throw new IllegalStateException("Decryption key for video not found");
@@ -410,7 +408,7 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			
 			if(psshAudio != null) {
 				List<MediaDecryptionKey> keys = decryptionKeys(resolver, audio, psshAudio.content());
-				keyAudio = correctDecryptionKey(fileDownloader, pathAudio, segmentsAudio, keys, psshAudio.keyId());
+				keyAudio = correctDecryptionKey(pathAudio, segmentsAudio, keys, psshAudio.keyId());
 				
 				if(keyAudio == null) {
 					throw new IllegalStateException("Decryption key for audio not found");
