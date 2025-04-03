@@ -171,7 +171,8 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 		ConversionCommand.Builder builder = FFmpeg.Command.builder()
 			.addInputs(Input.of(input, MediaFormat.MP4, metadataInput))
 			.addOutputs(Output.of(output, MediaFormat.MP4))
-			.addOptions(FFmpeg.Options.yes(), FFmpeg.Options.hideBanner());
+			.addOptions(FFmpeg.Options.yes(), FFmpeg.Options.hideBanner())
+			.addOptions(Option.ofShort("xerror")); // Fail immediately
 		
 		try {
 			for(MediaDecryptionKey key : keys) {
