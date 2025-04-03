@@ -118,7 +118,7 @@ public final class Decryptor implements DecryptionContext {
 		
 		// Clean up the temporary files and replace the encrypted input file with
 		// the new decrypted one.
-		NIO.move(tempOutput, input);
+		safeMove(tempOutput, input);
 		NIO.delete(tempInput);
 		AsciiUtils.maybeDeleteTempDirectories();
 	}
