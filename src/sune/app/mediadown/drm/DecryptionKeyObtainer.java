@@ -1,5 +1,7 @@
 package sune.app.mediadown.drm;
 
+import static sune.app.mediadown.drm.util.Common.logDebug;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -21,6 +23,8 @@ import sune.app.mediadown.drm.event.DecryptionContext;
 import sune.app.mediadown.drm.event.DecryptionEvent;
 import sune.app.mediadown.drm.tracker.DecryptionProcessState;
 import sune.app.mediadown.drm.tracker.DecryptionProcessTracker;
+import sune.app.mediadown.drm.util.Common;
+import sune.app.mediadown.drm.util.Common.ProcessListener;
 import sune.app.mediadown.drm.util.MediaDecryptionKey;
 import sune.app.mediadown.drm.util.PSSH;
 import sune.app.mediadown.drm.util.WV;
@@ -183,12 +187,20 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 				// key, so media with multiple decryption keys are not supported.
 				int retval = -1;
 				
-				try(ReadOnlyProcess process = FFmpeg.createAsynchronousProcess((l) -> {})) {
+				logDebug("Trying key: <%s:%s>", key.kid(), key.key());
+				
+				try(
+					ProcessListener listener = Common.newProcessListener("ffmpeg");
+					ReadOnlyProcess process = FFmpeg.createAsynchronousProcess(listener)
+				) {
 					ConversionCommand command = copyCommandBuilder(builder)
 						.addOptions(Option.ofShort("decryption_key", key.key()))
 						.build();
 					
-					process.execute(command.toString());
+					String cmd = command.toString();
+					logDebug("ffmpeg %s", cmd);
+					
+					process.execute(cmd);
 					retval = process.waitFor();
 				} catch(IOException ex) {
 					// Temporary fix: Ignore the IOException that is thrown when the reader
@@ -200,6 +212,8 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 						throw ex; // Propagate
 					}
 				}
+				
+				logDebug("Exit code: %d", retval);
 				
 				if(retval == 0) {
 					return key;
@@ -219,9 +233,16 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			return null;
 		}
 		
+		logDebug("Select correct decryption key");
+		
 		boolean isKeyIdPresent = keyId != null && !keyId.isEmpty();
 		
 		if(isKeyIdPresent) {
+			logDebug(
+				"Key ID (KID) is present (%s), select the corresponding decryption key",
+				keyId
+			);
+			
 			MediaDecryptionKey key = keys.stream()
 				.filter((k) -> k.kid().equals(keyId))
 				.findFirst().orElse(null);
@@ -229,7 +250,13 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			if(key != null) {
 				return key;
 			}
+			
+			logDebug("Corresponding decryption key not found");
+		} else {
+			logDebug("Key ID (KID) is not present");
 		}
+		
+		logDebug("Find the correct decryption key");
 		
 		int numOfSegments = 2; // Must be at least 2 (init + 1 content segment)
 		Path tempOutput = null;
@@ -397,23 +424,51 @@ public final class DecryptionKeyObtainer implements DecryptionContext {
 			MediaDecryptionKey keyAudio = null;
 			
 			if(psshVideo != null) {
+				logDebug("Video has PSSH, get its decryption keys");
+				
 				List<MediaDecryptionKey> keys = decryptionKeys(resolver, video, psshVideo.content());
+				
+				logDebug(
+					"Video decryption keys:\n<\n%s\n>",
+					keys.stream().map((k) -> k.kid() + ':' + k.key()).collect(Collectors.joining("\n"))
+				);
+				
 				keyVideo = correctDecryptionKey(pathVideo, segmentsVideo, keys, psshVideo.keyId());
 				
 				if(keyVideo == null) {
+					logDebug("Video decryption key not found");
 					throw new IllegalStateException("Decryption key for video not found");
 				}
+				
+				logDebug(
+					"Found video decryption key: <%s:%s>",
+					keyVideo.kid(), keyVideo.key()
+				);
 				
 				if(!checkState()) return;
 			}
 			
 			if(psshAudio != null) {
+				logDebug("Audio has PSSH, get its decryption keys");
+				
 				List<MediaDecryptionKey> keys = decryptionKeys(resolver, audio, psshAudio.content());
+				
+				logDebug(
+					"Audio decryption keys: <\n%s\n>",
+					keys.stream().map((k) -> k.kid() + ':' + k.key()).collect(Collectors.joining("\n"))
+				);
+				
 				keyAudio = correctDecryptionKey(pathAudio, segmentsAudio, keys, psshAudio.keyId());
 				
 				if(keyAudio == null) {
+					logDebug("Audio decryption key not found");
 					throw new IllegalStateException("Decryption key for audio not found");
 				}
+				
+				logDebug(
+					"Found audio decryption key: <%s:%s>",
+					keyAudio.kid(), keyAudio.key()
+				);
 				
 				if(!checkState()) return;
 			}

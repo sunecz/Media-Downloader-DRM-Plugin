@@ -7,7 +7,6 @@ import sune.api.process.Processes;
 import sune.api.process.ReadOnlyProcess;
 import sune.app.mediadown.util.NIO;
 import sune.app.mediadown.util.OSUtils;
-import sune.app.mediadown.util.Utils;
 
 public final class MP4Decrypt {
 	
@@ -39,25 +38,5 @@ public final class MP4Decrypt {
 	
 	public static final ReadOnlyProcess createAsynchronousProcess(Consumer<String> listener) {
 		return Processes.createAsynchronous(path(), listener);
-	}
-	
-	public static final ReadOnlyProcess execute(Path input, Path output, MediaDecryptionKey key) throws Exception {
-		ReadOnlyProcess process = createAsynchronousProcess((l) -> {});
-		String command = Utils.format(
-			"--key %{kid}s:%{key}s \"%{input}s\" \"%{output}s\"",
-			"kid", key.kid(),
-			"key", key.key(),
-			"input", input.toAbsolutePath().toString(),
-			"output", output.toAbsolutePath().toString()
-		);
-		
-		process.execute(command);
-		return process;
-	}
-	
-	public static final int decrypt(Path input, Path output, MediaDecryptionKey key) throws Exception {
-		try(ReadOnlyProcess process = execute(input, output, key)) {
-			return process.waitFor();
-		}
 	}
 }

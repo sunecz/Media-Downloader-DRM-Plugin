@@ -1,7 +1,10 @@
 package sune.app.mediadown.drm;
 
+import java.util.logging.Level;
+
 import sune.app.mediadown.MediaDownloader;
 import sune.app.mediadown.configuration.Configuration.ConfigurationProperty;
+import sune.app.mediadown.drm.util.Common;
 import sune.app.mediadown.plugin.Plugin;
 import sune.app.mediadown.plugin.PluginBase;
 import sune.app.mediadown.plugin.PluginConfiguration;
@@ -23,6 +26,7 @@ public final class DRMPlugin extends PluginBase {
 	// Default values of configuration properties
 	private static final int DEFAULT_KEYS_MAX_RETRY_ATTEMPTS = 5;
 	private static final int DEFAULT_WAIT_ON_RETRY_MS = 250;
+	private static final boolean DEFAULT_ENABLE_LOGGING = false;
 	
 	private String translatedTitle;
 	private PluginConfiguration.Builder configuration;
@@ -40,6 +44,10 @@ public final class DRMPlugin extends PluginBase {
 			.inGroup(group)
 			.withDefaultValue(DEFAULT_WAIT_ON_RETRY_MS)
 			.withOrder(80));
+		builder.addProperty(ConfigurationProperty.ofBoolean("enableLogging")
+			.inGroup(group)
+			.withDefaultValue(DEFAULT_ENABLE_LOGGING)
+			.withOrder(100));
 		
 		configuration = builder;
 	}
@@ -54,6 +62,13 @@ public final class DRMPlugin extends PluginBase {
 	@Override
 	public void dispose() throws Exception {
 		// Do nothing
+	}
+	
+	@Override
+	public void afterBuildConfiguration() throws Exception {
+		PluginConfiguration configuration = getContext().getConfiguration();
+		boolean loggingEnabled = configuration.booleanValue("enableLogging");
+		Common.initialize(loggingEnabled ? Level.ALL : Level.OFF);
 	}
 	
 	@Override

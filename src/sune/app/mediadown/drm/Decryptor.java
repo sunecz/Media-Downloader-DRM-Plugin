@@ -15,6 +15,8 @@ import sune.app.mediadown.drm.event.DecryptionEvent;
 import sune.app.mediadown.drm.tracker.DecryptionProcessState;
 import sune.app.mediadown.drm.tracker.DecryptionProcessTracker;
 import sune.app.mediadown.drm.util.AsciiUtils;
+import sune.app.mediadown.drm.util.Common;
+import sune.app.mediadown.drm.util.Common.ProcessListener;
 import sune.app.mediadown.drm.util.MP4Decrypt;
 import sune.app.mediadown.drm.util.MediaDecryptionKey;
 import sune.app.mediadown.event.Event;
@@ -44,6 +46,7 @@ public final class Decryptor implements DecryptionContext {
 	private final SyncObject lockPause = new SyncObject();
 	
 	private ReadOnlyProcess decryptProcess;
+	private ProcessListener processListener;
 	private Exception exception;
 	
 	public Decryptor(List<ConversionMedia> conversionMedia, MediaDecryptionKey keyVideo, MediaDecryptionKey keyAudio) {
@@ -70,6 +73,16 @@ public final class Decryptor implements DecryptionContext {
 	
 	private final Path asciiTempPath(Path dir, String asciiFileName) throws IOException {
 		return AsciiUtils.tempPath(dir.toAbsolutePath(), asciiFileName);
+	}
+	
+	private final String command(Path input, Path output, MediaDecryptionKey key) {
+		return Utils.format(
+			"--key %{kid}s:%{key}s \"%{input}s\" \"%{output}s\"",
+			"kid", key.kid(),
+			"key", key.key(),
+			"input", input.toAbsolutePath().toString(),
+			"output", output.toAbsolutePath().toString()
+		);
 	}
 	
 	private final void safeMove(Path src, Path dst) throws IOException {
@@ -99,7 +112,9 @@ public final class Decryptor implements DecryptionContext {
 		
 		int retval = -1;
 		try {
-			decryptProcess = MP4Decrypt.execute(tempInput, tempOutput, key);
+			processListener = Common.newProcessListener("mp4decrypt");
+			decryptProcess = MP4Decrypt.createAsynchronousProcess(processListener);
+			decryptProcess.execute(command(tempInput, tempOutput, key));
 			retval = decryptProcess.waitFor();
 		} catch(IOException ex) {
 			// Temporary fix: Ignore the IOException that is thrown when the reader
@@ -109,6 +124,10 @@ public final class Decryptor implements DecryptionContext {
 			if(message == null
 					|| !message.equals("Stream closed")) {
 				throw ex; // Propagate
+			}
+		} finally {
+			if(processListener != null) {
+				processListener.close();
 			}
 		}
 		
@@ -199,7 +218,13 @@ public final class Decryptor implements DecryptionContext {
 		state.unset(TaskStates.PAUSED);
 		lockPause.unlock();
 		
-		processAction(Process::destroyForcibly);
+		if(processListener != null) {
+			processListener.close();
+		}
+		
+		if(decryptProcess != null) {
+			decryptProcess.close();
+		}
 		
 		if(!state.is(TaskStates.DONE)) {
 			state.set(TaskStates.STOPPED);

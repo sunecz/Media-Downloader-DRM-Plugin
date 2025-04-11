@@ -14,7 +14,8 @@
 				},
 				fields: {
 					keysMaxRetryAttempts: "Maximální počet pokusů o opakování při získávání dešifrovacích klíčů",
-					waitOnRetryMs:        "Při opakování počkat milisekund"
+					waitOnRetryMs:        "Při opakování počkat milisekund",
+					enableLogging:        "Povolit protokolování"
 				}
 			}
 		}
