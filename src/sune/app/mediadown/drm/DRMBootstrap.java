@@ -4,11 +4,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.PosixFilePermission;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -279,28 +277,18 @@ public final class DRMBootstrap implements EventBindable<EventType> {
 				eventRegistry.call(DRMBootstrapEvent.RESOURCE_CHECK, new CheckEventContext<>(DRMBootstrap.this, name));
 			});
 			
-			updater.check();
+			boolean success = updater.check();
 			
-			// Make sure all the binaries are executable (Unix systems)
-			if(!OSUtils.isWindows()) {
+			if(success) {
+				// Make sure all the binaries are executable
 				Path dirPath = NIO.localPath("resources/binary/drm/");
 				
 				List<Path> binaries = List.of(
 					dirPath.resolve(OSUtils.getExecutableName("mp4decrypt"))
 				);
 				
-				Set<PosixFilePermission> requiredPermissions = Set.of(
-					PosixFilePermission.OWNER_EXECUTE,
-					PosixFilePermission.GROUP_EXECUTE,
-					PosixFilePermission.OTHERS_EXECUTE
-				);
-				
 				for(Path path : binaries) {
-					Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(path);
-					
-					if(!permissions.containsAll(requiredPermissions)) {
-						NIO.chmod(path, 7, 7, 7);
-					}
+					NIO.makeExecutable(path);
 				}
 			}
 		}
