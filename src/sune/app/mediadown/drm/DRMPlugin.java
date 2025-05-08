@@ -12,7 +12,7 @@ import sune.app.mediadown.transformer.Transformers;
 
 @Plugin(name          = "drm",
 		title         = "plugin.drm.title",
-		version       = "00.02.09-0021",
+		version       = "00.02.09-0022",
 		author        = "Sune",
 		updateBaseURL = "https://app.sune.tech/mediadown/dat/plugin/0002/plugin/drm/",
 		updatable     = true,
