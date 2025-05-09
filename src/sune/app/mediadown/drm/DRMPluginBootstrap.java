@@ -9,7 +9,6 @@ import sune.app.mediadown.drm.event.DRMBootstrapEvent;
 import sune.app.mediadown.plugin.PluginBootstrap;
 import sune.app.mediadown.plugin.PluginBootstrapBase;
 import sune.app.mediadown.resource.Resources.StringReceiver;
-import sune.app.mediadown.util.Reflection2;
 
 @PluginBootstrap(pluginClass=DRMPlugin.class)
 public final class DRMPluginBootstrap extends PluginBootstrapBase {
@@ -38,8 +37,8 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 	@Override
 	public void init() throws Exception {
 		// Use the default string receiver of the Startup window
-		Class<?> classStates = Reflection2.getClass("sune.app.mediadown.MediaDownloader$InitializationStates");
-		StartupWindow window = Reflection2.getField(classStates, null, "window");
+		StartupWindow window = StartupWindow.instance();
+		StringReceiver receiver = window != null ? window::setText : (text) -> {};
 		// Bootstrap the DRM system
 		DRMBootstrap.Builder builder = new DRMBootstrap.Builder();
 		Arguments arguments = MediaDownloader.arguments();
@@ -48,7 +47,7 @@ public final class DRMPluginBootstrap extends PluginBootstrapBase {
 		builder.generateHashLists(arguments.booleanValue("drm-generate-lists"));
 		
 		DRMBootstrap bootstrap = builder.build();
-		addDefaultBootstrapListeners(bootstrap, window != null ? (text) -> window.setText(text) : (text) -> {});
+		addDefaultBootstrapListeners(bootstrap, receiver);
 		bootstrap.run(MediaDownloader.class);
 	}
 	
