@@ -3,9 +3,9 @@ package sune.app.mediadown.drm;
 import java.nio.file.Path;
 import java.util.List;
 
+import sune.app.mediadown.os.OS;
 import sune.app.mediadown.update.Version;
 import sune.app.mediadown.util.NIO;
-import sune.app.mediadown.util.OSUtils;
 
 /**
  * Used for cleaning up files and directories when the plugin is updated.
@@ -82,7 +82,7 @@ public final class DRMUpdateCleanup {
 		
 		private final List<String> resources() {
 			return List.of(
-				OSUtils.getExecutableName("resources/binary/drm/wv")
+				OS.current().executableFileName("resources/binary/drm/wv")
 			);
 		}
 		

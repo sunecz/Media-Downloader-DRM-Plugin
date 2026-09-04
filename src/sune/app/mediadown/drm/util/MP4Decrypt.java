@@ -5,8 +5,8 @@ import java.util.function.Consumer;
 
 import sune.api.process.Processes;
 import sune.api.process.ReadOnlyProcess;
+import sune.app.mediadown.os.OS;
 import sune.app.mediadown.util.NIO;
-import sune.app.mediadown.util.OSUtils;
 
 public final class MP4Decrypt {
 	
@@ -18,7 +18,7 @@ public final class MP4Decrypt {
 	
 	private static final Path ensureBinary() {
 		if(path == null) {
-			path = NIO.localPath("resources/binary/drm", OSUtils.getExecutableName("mp4decrypt"));
+			path = NIO.localPath("resources/binary/drm", OS.current().executableFileName("mp4decrypt"));
 			
 			if(!NIO.isRegularFile(path)) {
 				throw new IllegalStateException("mp4decrypt utility was not found at " + path.toAbsolutePath().toString());
