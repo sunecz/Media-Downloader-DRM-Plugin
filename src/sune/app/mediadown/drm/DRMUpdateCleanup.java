@@ -76,7 +76,7 @@ public final class DRMUpdateCleanup {
 	private static final class V3 extends DefaultCleanupJob {
 		
 		@Override protected Version minVersion() { return Version.ZERO; }
-		@Override protected Version maxVersion() { return Version.of("00.02.09-0015"); }
+		@Override protected Version maxVersion() { return Version.of("0.2.9-15"); }
 		
 		private V3() {}
 		
@@ -97,7 +97,7 @@ public final class DRMUpdateCleanup {
 	private static final class V2 extends DefaultCleanupJob {
 		
 		@Override protected Version minVersion() { return Version.ZERO; }
-		@Override protected Version maxVersion() { return Version.of("00.02.09-0001"); }
+		@Override protected Version maxVersion() { return Version.of("0.2.9-1"); }
 		
 		private V2() {}
 		

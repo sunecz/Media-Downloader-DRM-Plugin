@@ -10,15 +10,15 @@ import sune.app.mediadown.plugin.PluginBase;
 import sune.app.mediadown.plugin.PluginConfiguration;
 import sune.app.mediadown.transformer.Transformers;
 
-@Plugin(name          = "drm",
-		title         = "plugin.drm.title",
-		version       = "00.02.09-0022",
-		author        = "Sune",
-		updateBaseURL = "https://app.sune.tech/mediadown/dat/plugin/0002/plugin/drm/",
-		updatable     = true,
-		url           = "https://projects.suneweb.net/media-downloader/",
-		icon          = "resources/drm/icon/drm.png",
-		moduleName    = "sune.app.mediadown.drm")
+@Plugin(
+	name       = "drm",
+	title      = "plugin.drm.title",
+	version    = "0.2.9-23.dev.1",
+	author     = "Sune",
+	url        = "https://projects.suneweb.net/media-downloader/",
+	icon       = "resources/drm/icon/drm.png",
+	moduleName = "sune.app.mediadown.drm"
+)
 public final class DRMPlugin extends PluginBase {
 	
 	private static final String NAME = "drm";
