@@ -72,12 +72,12 @@
 	
 	<target name="build-jar-maybe-copy" depends="build-jar" if="should.copy-to-app">
 		<echo message="Copying to application plugins..." />
-		<copy file="${drm.path.build}/${drm.plugin.name}.jar" tofile="${drm.path.plg}/${drm.plugin.name}.jar" />
+		<copy file="${drm.path.build}/plugin.jar" tofile="${drm.path.plg}/${drm.plugin.name}.jar" />
 	</target>
 	
 	<target name="build-jar" depends="init-build,compile">
 		<echo message="Building plugin '${drm.plugin.name}'..." />
-		<jar destfile="${drm.path.build}/${drm.plugin.name}.jar">
+		<jar destfile="${drm.path.build}/plugin.jar">
 			<manifest>
 				<attribute name="Class-Path" value="." />
 			</manifest>
@@ -91,6 +91,6 @@
 	
 	<target name="build-jar-src" depends="init-build">
 		<echo message="Building plugin '${drm.plugin.name}' source..." />
-		<zip destfile="${drm.path.build}/${drm.plugin.name}-source.jar" basedir="${drm.path.src}" />
+		<zip destfile="${drm.path.build}/source.jar" basedir="${drm.path.src}" />
 	</target>
 </project>
