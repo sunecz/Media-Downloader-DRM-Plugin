@@ -13,7 +13,7 @@ import sune.app.mediadown.transformer.Transformers;
 @Plugin(
 	name       = "drm",
 	title      = "plugin.drm.title",
-	version    = "0.2.9-23.dev.1",
+	version    = "0.2.9-23.alpha.1",
 	author     = "Sune",
 	url        = "https://projects.suneweb.net/media-downloader/",
 	icon       = "resources/drm/icon/drm.png",
